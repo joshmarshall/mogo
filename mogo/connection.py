@@ -47,14 +47,12 @@ class Connection(object):
         """ Retrieve a collection from an existing connection. """
         return self.get_database(database=database)[collection]
         
-def connect(database, host=None, port=None, *args, **kwargs):
+def connect(database, *args, **kwargs):
     """ 
     Initializes a connection and the database. It returns
     the pymongo connection object so that end_request, etc.
     can be called if necessary.
     """
-    kwargs['host'] = host
-    kwargs['port'] = port
     conn_obj = Connection.instance()
     conn = conn_obj.connect(database, *args, **kwargs)
     return conn

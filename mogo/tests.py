@@ -4,13 +4,9 @@ from mogo.connection import Connection
 import pymongo
 import pymongo.objectid
 import time
+import hashlib
 
 DBNAME = 'mogotest'
-MONGOENGINE = False
-try:
-    import mongoengine as MONGOENGINE
-except ImportError:
-    pass
 
 class Foo(Model):
     pass
@@ -86,59 +82,5 @@ class UnitTests(unittest.TestCase):
         coll = db['foo']
         coll.remove()
         
-def time_diff():
-    conn = connect(DBNAME)
-    pydb = conn[DBNAME]
-    
-    # Setting up the collections (these should be the same time)
-    pydb.drop_collection('pyfoo')
-    pydb.drop_collection('foo')
-    pydb.create_collection('pyfoo')
-    pydb.create_collection('foo')
-    
-    pycoll = pydb['pyfoo']
-    mocoll = pydb['foo']
-    n = 1000
-    pystart = time.time()
-    for i in range(n):
-        entry = {'bar':'cheese'}
-        pyid = pycoll.save(entry)
-    result = pycoll.find({'bar':'cheese'})
-    for r in result:
-        pycoll.remove({'_id':r['_id']})
-    pyend = time.time()
-    mogostart = time.time()
-    for i in range(n):
-        foo = Foo(bar='cheese')
-        idval = foo.save()
-    result = Foo.find({'bar':'cheese'})
-    for r in result:
-        r.remove()
-    mogoend = time.time()
-    mogotime = mogoend - mogostart
-    pytime = pyend - pystart
-    print 'PyMongo for %s inserts / deletes' % n
-    print round(pytime, 4)
-    print 'Mogo for %s inserts / deletes:' % n
-    print round(mogotime, 4)
-    if MONGOENGINE:
-        me_conn = MONGOENGINE.connect(DBNAME)
-        class MEFoo(MONGOENGINE.Document):
-            bar = MONGOENGINE.StringField(default='cheese')
-        mestart = time.time()
-        for i in range(n):
-            foo = MEFoo(bar='cheese')
-            foo.save()
-        result = MEFoo.objects(bar='cheese')
-        for r in result:
-            r.delete()
-        meend = time.time()
-        metime = meend - mestart
-        print 'MongoEngine for %s inserts / deletes:' % n
-        print round(metime, 4)
-    print
-    
-        
 if __name__ == '__main__':
-    time_diff()
     unittest.main()

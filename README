@@ -1,0 +1,121 @@
+MOGO ORM
+========
+This library is a very, very simple "ORM" wrapper around the pymongo
+library (http://github.com/mongodb/mongo-python-driver). Mogo is not
+a full-featured library like MongoEngine -- it simply provides some
+syntactic sugar so that you can access any PyMongo result with
+dot-attribute syntax, as well as attach custom methods to the models.
+
+This emerged from my experience with PyMongo and MongoEngine -- 
+while pymongo is very simple to use and really flexible, it doesn't
+fully meet the MVC pattern because you are working with plain dicts 
+and can't attach model logic anywhere.
+
+MongoEngine, on the other hand, is a heavier implementation on
+top of PyMongo, with Django-like syntax. While I liked MongoEngine,
+ultimately I wanted the schema-less flexibility of a dict with as 
+little between my code and the database as possible.
+
+Mogo is licensed under the Apache License, Version 2.0
+(http://www.apache.org/licenses/LICENSE-2.0.html).
+
+REQUIREMENTS
+============
+* PyMongo - http://github.com/mongodb/mongo-python-driver
+
+INSTALLATION
+============
+You should be able to grab it via git and run the following command
+on some Unix-y system:
+	
+	python setup.py install
+	
+TESTS
+=====
+To run the tests, make sure you have a MongoDB instance running
+on your local machine. It will write and delete entries to 
+"mogotest", so if by some bizarre coincidence you have / need that, 
+you might want to alter the DBNAME constant in the mogo/tests.py
+file.
+
+After installation, or from the root project directory, run:
+
+    python -m mogo.tests
+
+USAGE
+=====
+You should be able to immediately use this with any existing data
+on a MongoDB installation. (DATA BE WARNED: THIS IS ALPHA!!) All you 
+need is a class with the proper collection name, and connect to
+the DB before you access it. The following is a simple user model
+that hashes a password.
+
+	from mogo import Model, connect
+	import hashlib
+
+	class UserData(Model):
+		# By default, it uses the lowercase class name. To override,
+		# you can either set cls.__name__, or use _name:
+		_name = 'useraccount'
+	
+		def set_password(self, password):
+			hash_password = hashlib.md5(password).hexdigest()
+			self.password = hash_password
+			self.save()
+		
+		@classmethod
+		def authenticate(cls, username, password):
+			hash_password = hashlib.md5(password).hexdigest()
+			return cls.find_one({
+				'username':username, 
+				'password':hash_password
+			})
+		
+
+	conn = connect('mydb') # takes host, port, etc. as well.
+	
+	# Inserting...
+	new_user = UserData(username='test', name='Testing')
+	new_user.role = 'admin'
+	new_user.set_password('f00b4r')
+	new_id = new_user.save()
+	user = UserData.grab(new_id)
+	# Changed my mind...
+	user.remove()
+
+	# Probably not the best usage example... :)
+	results = UserData.find({'role': 'admin'})
+	for result in results:
+		print result.username, result.name
+		result.set_password('hax0red!')
+		
+Yes, this means the most basic example is just a class with nothing:
+	
+	class NewModel(Model):
+		pass
+
+Most of the basic collection methods are available on the model. Some
+are classmethods, like .find(), .find_one(), .count(), etc. Others
+simplify things like .save() and .remove(), but still take all the same
+extra parameters as PyMongo's collections / cursors. Finally, a few
+properties like .id provide shorthand access to standard keys. (You 
+can overwrite what .id returns by setting _id_field on the class.)
+
+Scroll through the mogo/model.py file in the project to see the 
+methods available. Really, this README is almost longer than the
+code in this project. :)
+
+TODO
+====
+* Write more tests
+* Implement Map-Reduce and Group
+* Maybe, MAYBE look at gridfs.
+* Make faster where possible.
+
+CONTACT
+=======
+If you play with this in any way, I'd love to hear about it. It's
+really, really alpha -- I still have some collection methods to add
+to the base Model, and I haven't touched Map / Reduce results or
+anything really advanced, but hopefully this scratches someone else's
+itch too.

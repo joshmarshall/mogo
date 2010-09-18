@@ -11,10 +11,14 @@ the appropriate construct.
 You don't need to specify fields or anything -- usage is pretty
 simple:
 
-class Foo(Model):
-    # Silly custom method example.
-    def custom_method(self):
-        return self.get('bar', 'DEFAULT').lower()
+from mogo import Model
+import hashlib
+
+class UserAccount(Model):
+    # Custom method example
+    def set_password(self, password):
+        self.password = hashlib.md5(password).hexdigest()
+        self.save()
 
 """
 
@@ -87,7 +91,12 @@ class Model(dict):
     # if desired. All internal use should use model._get_id()
     @property
     def id(self):
-        """ Returns the id. """
+        """ 
+        Returns the id. This is designed so that a subclass can still
+        overwrite 'id' if desired... internal use should only use
+        self._get_id(). May remove in the future if it's more annoying
+        than helpful.
+        """
         return self._get_id()
     
     @classmethod
@@ -111,6 +120,28 @@ class Model(dict):
     def grab(cls, object_id):
         """ A shortcut to retrieve one object by its id. """
         return cls.find_one({cls._id_field: object_id})
+        
+    @classmethod
+    def create_index(cls, *args, **kwargs):
+        """ Wrapper for collection create_index() """
+        return cls._get_collection().create_index(*args, **kwargs)
+        
+    @classmethod
+    def ensure_index(cls, *args, **kwargs):
+        """ Wrapper for collection ensure_index() """
+        return cls._get_collection().ensure_index(*args, **kwargs)
+        
+    @classmethod
+    def drop_indexes(cls, *args, **kwargs):
+        """ Wrapper for collection drop_indexes() """
+        return cls._get_collection().drop_indexes(*args, **kwargs)
+    
+    @classmethod
+    def distinct(cls, key):
+        """ Wrapper for collection distinct() """
+        return self.find().distinct(key)
+    
+    # Map Reduce and Group methods eventually go here.
     
     @classmethod    
     def _get_collection(cls):
