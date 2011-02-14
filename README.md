@@ -1,5 +1,5 @@
-MOGO ORM
-========
+Mogo 
+====
 This library is a simple "schema-less" object wrapper around the 
 pymongo library (http://github.com/mongodb/mongo-python-driver). Mogo 
 is not a full-featured ORM like MongoEngine -- it simply provides some
@@ -53,59 +53,16 @@ After installation, or from the root project directory, run:
 
 Usage
 -----
+All the major classes and functions are available under mogo:
+
+    import mogo
+    # or
+    from mogo import Model, Field, connect, ReferenceField
+
 You should be able to immediately use this with any existing data
 on a MongoDB installation. (DATA BE WARNED: THIS IS ALPHA!!) All you 
 need is a class with the proper collection name, and connect to
-the DB before you access it. The following is a simple user model
-that hashes a password.
-
-    from mogo import Model, connect
-    import hashlib
-
-    class UserData(Model):
-        # By default, it uses the lowercase class name. To override,
-        # you can either set cls.__name__, or use _name:
-        _name = 'useraccount'
-        
-        # Document fields are optional (and don't do much)
-        # but you'll probably want them for documentation.
-        name = Field()
-        username = Field()
-        password = Field()
-    
-        def set_password(self, password):
-            hash_password = hashlib.md5(password).hexdigest()
-            self.password = hash_password
-            self.save()
-        
-        @classmethod
-        def authenticate(cls, username, password):
-            hash_password = hashlib.md5(password).hexdigest()
-            return cls.find_one({
-                'username':username, 
-                'password':hash_password
-            })
-        
-
-    conn = connect('mydb') # takes host, port, etc. as well.
-    
-    # Inserting...
-    new_user = UserData(username='test', name='Testing')
-    # notice that we're setting a field "role" that we
-    # did not specify in the Model definition.
-    new_user.role = 'admin'
-    new_user.set_password('f00b4r')
-    new_id = new_user.save()
-    user = UserData.grab(new_id)
-    # Changed my mind...
-    user.delete()
-
-    # Probably not the best usage example... :)
-    results = UserData.find({'role': 'admin'})
-    for result in results:
-        print result.username, result.name
-        result.set_password('hax0red!')
-        result.save()
+the DB before you access it.
         
 Yes, this means the most basic example is just a class with nothing:
     
@@ -155,7 +112,73 @@ but still take all the same extra parameters as PyMongo's objects. A few
 properties like .id provide shorthand access to standard keys. (You 
 can overwrite what .id returns by setting _id_field on the class.) 
 Finally, a few are restricted to class-only access, like Model.remove
-and Model.drop (so you don't accidentally go wiping your collections.)
+and Model.drop (so you don't accidentally go wiping your collections
+by calling a class method on an instance.)
+
+The following is a simple user model that hashes a password, followed by 
+a usage example that shows some additional methods.
+
+MODEL EXAMPLE:
+
+    from mogo import Model, connect, Field
+    import hashlib
+
+    class User(Model):
+        # By default, it uses the lowercase class name. To override,
+        # you can either set cls.__name__, or use _name:
+        _name = 'useraccount'
+        
+        # Document fields are optional (and don't do much)
+        # but you'll probably want them for documentation.
+        name = Field()
+        username = Field()
+        password = Field()
+    
+        def set_password(self, password):
+            hash_password = hashlib.md5(password).hexdigest()
+            self.password = hash_password
+            self.save()
+        
+        @classmethod
+        def authenticate(cls, username, password):
+            hash_password = hashlib.md5(password).hexdigest()
+            return cls.find_one({
+                'username':username, 
+                'password':hash_password
+            })
+        
+
+USAGE EXAMPLE
+
+    conn = connect('mydb') # takes host, port, etc. as well.
+    
+    # Inserting...
+    new_user = User(username='test', name='Testing')
+    # notice that we're setting a field "role" that we
+    # did not specify in the Model definition.
+    new_user.role = 'admin'
+    new_user.set_password('f00b4r')
+    new_id = new_user.save(safe=True) # using a PyMongo param
+    user = User.grab(new_id) # grabs by ID
+
+    # Probably not the best usage example... :)
+    results = User.find({'role': 'admin'})
+    for result in results:
+        print result.username, result.name
+        result.set_password('hax0red!')
+        result.save() # only saves updated fields this time
+        
+    # Alternate searching
+    test = User.search(name="Testing").first()
+    # or...
+    test = User.find_one({"name": "Testing"})
+    
+    # Deleting...
+    test.delete()
+    
+    # Remove and drop class methods
+    User.remove({'role': 'admin'}) # wipes all admins
+    User.drop() # removes collection entirely
 
 Scroll through the mogo/model.py file in the project to see the 
 methods available. If something is not well documented, ping me at the
