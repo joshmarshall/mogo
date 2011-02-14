@@ -100,7 +100,7 @@ So most real world models will look more this:
     print [person.name for person in acme.people]
     # results in ["Joe",]
     
-Note -- don't use a ReferenceField if you haven't been storing
+Note -- only use a ReferenceField if you have been storing
 DBRef's as the values. If you've just been storing ObjectIds or 
 something, it may be easier for existing data to just use 
 a Field() and do the retrieval logic yourself.
@@ -195,9 +195,8 @@ TODO
 
 Contact
 -------
-Mailing list:
-* Web: http://groups.google.com/group/mogo-python
-* Address: mogo-python@googlegroups.com
+* Mailing List Web: http://groups.google.com/group/mogo-python
+* Mailing List Address: mogo-python@googlegroups.com
 
 If you play with this in any way, I'd love to hear about it. It's
 really, really alpha -- I still have some collection methods to add
