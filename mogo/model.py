@@ -8,13 +8,20 @@ Most importantly however, you can add methods to the model which is
 sort of the main point of the MVC pattern of keeping logic with
 the appropriate construct.
 
-You don't need to specify fields or anything -- usage is pretty
-simple:
+Specifying fields is optional, although it is recommended for 
+external references.
+
+Usage example:
 
 from mogo import Model
 import hashlib
 
 class UserAccount(Model):
+
+    name = Field()
+    email = Field()
+    company = ReferenceField(Company)
+
     # Custom method example
     def set_password(self, password):
         self.password = hashlib.md5(password).hexdigest()
@@ -24,6 +31,10 @@ class UserAccount(Model):
 
 from mogo.connection import Connection
 from mogo.cursor import Cursor
+from mogo.field import Field, ReferenceField
+from pymongo.dbref import DBRef
+from mogo.decorators import notinstancemethod
+import inspect
 
 class Model(dict):
     """ 
@@ -42,6 +53,48 @@ class Model(dict):
     _id_field = '_id'
     _name = None
     _collection = None
+    _fields = None
+    _updated = None
+    
+    def __init__(self, *args, **kwargs):
+        """ Just initializes the fields... """
+        self._fields = []
+        self._updated = []
+        dict.__init__(self, *args, **kwargs)
+        for attr_key in dir(self.__class__):
+            if attr_key.startswith('_'):
+                continue
+            attr = getattr(self.__class__, attr_key)
+            if not isinstance(attr, Field):
+                continue
+            self._fields.append(attr_key)
+            value = attr.default
+            if attr_key in kwargs.keys():
+                value = kwargs.get(attr_key)
+            dict.__setattr__(self, attr_key, value)
+            
+    def __getattribute__(self, name):
+        value = dict.__getattribute__(self, name)
+        if type(value) is DBRef:
+            model = None
+            if self._fields and name in self._fields:
+                field = getattr(self.__class__, name)
+                if isinstance(field, ReferenceField):
+                    model = field.model
+            if not model:
+                if value.collection == self._get_name():
+                    model = self.__class__
+                else:
+                    # Making a "fake" model
+                    class NewModel(Model):
+                        _name = value.collection
+                    model = NewModel
+            # Lazy-loading now
+            find_spec = {model._id_field: value.id}
+            value = model.find_one(find_spec)
+            # "Caching"
+            dict.__setattr__(self, name, value)
+        return value
     
     def __getattr__(self, name):
         """ Anything not specified in the class pulls from the dict """
@@ -54,9 +107,23 @@ class Model(dict):
         
     def __setattr__(self, name, value):
         """ Sets a value to the dict if it's not an attribute. """
-        if name in dir(self):
+        if name not in dir(self) or (
+            self._fields and name in self._fields
+        ):
+            self._updated.append(name)
+            self.__setitem__(name, value)
+            if self._fields and name in self._fields:
+                dict.__setattr__(self, name, value)
+        else:
             return dict.__setattr__(self, name, value)
-        return dict.__setitem__(self, name, value)
+        
+    def __setitem__(self, name, value):
+        orig_value = getattr(self, name)
+        if orig_value != value:
+            self._updated.append(name)
+        dict.__setitem__(self, name, value)
+        if self._fields and name in self._fields:
+            dict.__setattr__(self, name, value)
         
     def _get_id(self):
         """ 
@@ -67,25 +134,68 @@ class Model(dict):
         """
         return self.get(self._id_field)
         
+    def _get_updated(self):
+        """ Return recently updated contents of the model. """
+        body = {}
+        object_id = self.get(self._id_field)
+        if object_id and not self._updated:
+            return body
+        #body[self._id_field] = self.get(self._id_field)
+        if object_id:
+            for key in self._updated:
+                body[key] = self.get(key)
+        else:
+            body = self.copy()
+        for key, value in body.iteritems():
+            if isinstance(value, Model):
+                """ Save the ref! """
+                body[key] = DBRef(value._get_name(), value._get_id())
+        return body
+        
     def save(self, *args, **kwargs):
         """ 
-        Just a wrapper for the pymongo collection .save().
-        Allows all the same arguments. 
+        Determines whether to save or update, and does so.
         """
         coll = self._get_collection()
-        object_id = coll.save(self.copy(), *args, **kwargs)
-        self[self._id_field] = object_id
+        body = {}
+        object_id = self._get_id()
+        body = self._get_updated()
+        if body == None:
+            return object_id
+        if not object_id:
+            object_id = coll.save(body, *args, **kwargs)
+        else:
+            spec = {self._id_field: object_id}
+            coll.update(spec, {"$set": body}, *args, **kwargs)
+        self._updated = []
+        dict.__setitem__(self, self._id_field, object_id)
         return object_id
         
-    def remove(self, *args, **kwargs):
+    def delete(self, *args, **kwargs):
         """ 
         Uses the id in the collection.remove method. 
-        Allows all the same arguments.
+        Allows all the same arguments (except the spec/id).
         """
         if not self._get_id():
             raise ValueError('No id has been set, so removal is impossible.')
         coll = self._get_collection()
-        return coll.remove({self._id_field: self._get_id()}, *args, **kwargs)
+        return coll.remove(self._get_id(), *args, **kwargs)
+    
+    # Using notinstancemethod for classmethods which would 
+    # have dire, unintended consequences if used on an
+    # instance. (Like, wiping a collection by trying to "remove"
+    # a single document.)    
+    @notinstancemethod
+    def remove(cls, *args, **kwargs):
+        """ Just a wrapper around the collection's remove. """
+        coll = cls._get_collection()
+        return coll.remove(*args, **kwargs)
+        
+    @notinstancemethod
+    def drop(cls, *args, **kwargs):
+        """ Just a wrapper around the collection's drop. """
+        coll = cls._get_collection()
+        return coll.drop(*args, **kwargs)
         
     # This is designed so that the end user can still use 'id' as a Field 
     # if desired. All internal use should use model._get_id()
@@ -113,8 +223,24 @@ class Model(dict):
         
     @classmethod
     def find(cls, *args, **kwargs):
-        """ A wrapper for the pymongo cursor. Uses all the same arguments. """
+        """ 
+        A wrapper for the pymongo cursor. Uses all the 
+        same arguments. 
+        """
         return Cursor(cls, *args, **kwargs)
+        
+    @classmethod
+    def search(cls, **kwargs):
+        """ 
+        Helper method that wraps keywords to dict and automatically
+        turns instances into DBRefs.
+        """
+        query = {}
+        for key, value in kwargs.iteritems():
+            if isinstance(value, Model):
+                value = value.get_ref()
+            query[key] = value
+        return cls.find(query)
     
     @classmethod
     def grab(cls, object_id):
@@ -167,6 +293,8 @@ class Model(dict):
         This method compares two objects names and id values. 
         If they match, they are "equal".
         """
+        if not isinstance(other, Model):
+            return False
         this_id = self._get_id()
         other_id = other._get_id()
         if self.__class__.__name__ == other.__class__.__name__ and \
@@ -177,10 +305,17 @@ class Model(dict):
         
     def __ne__(self, other):
         """ Returns the inverse of __eq__ ."""
-        return not self.__eq__(self, other)
+        return not self.__eq__(other)
         
     # Friendly wrappers around collection
     @classmethod
     def count(cls):
         """ Just a wrapper for the collection.count() method. """
         return cls.find().count()
+        
+    def get_ref(self):
+        """ Returns a DBRef for an document. """
+        return DBRef(self._get_name(), self._get_id())
+        
+    def __repr__(self):
+        return "<MogoModel:%s id:%s>" % (self._get_name(), self._get_id())

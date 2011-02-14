@@ -20,3 +20,8 @@ class Cursor(PyCursor):
     def __getitem__(self, index):
         value = PyCursor.__getitem__(self, index)
         return self._model(**value)
+        
+    def first(self):
+        if self.count() == 0:
+            return None
+        return self[0]
