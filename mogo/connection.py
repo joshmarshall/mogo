@@ -53,6 +53,4 @@ def connect(database, *args, **kwargs):
     the pymongo connection object so that end_request, etc.
     can be called if necessary.
     """
-    conn_obj = Connection.instance()
-    conn = conn_obj.connect(database, *args, **kwargs)
-    return conn
+    return Connection.connect(database, *args, **kwargs)

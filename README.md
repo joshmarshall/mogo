@@ -70,22 +70,29 @@ Yes, this means the most basic example is just a class with nothing:
         pass
         
 However, a Field class has been added for self-documenting purposes
-(and features may be added later if necessary). In addition, a 
-ReferenceField class allows (simple) model references to be used. The 
-"search" class method lets you pass in model instances and compare. 
+(and features may be added later if necessary). You should pass in a
+type as the first argument to a Field -- not for type checking on saving
+or loading, but just for reference sake (and other libraries). All standard
+types should work, as well as pymongo.objectid.ObjectId and 
+pymongo.dbref.DBRef. Eventually, we'll add support for default values
+and strict type checking if it's configured for it (and desired).
+
+The  ReferenceField class allows (simple) model references to be used. 
+The "search" class method lets you pass in model instances and compare. 
 
 So most real world models will look more this:
 
     class Company(Model):
-        name = Field()
+        name = Field(str)
+        age = Field(int)
         
         @property
         def people(self):
             return Person.search(company=self)
 
     class Person(Model):
-        name = Field()
-        email = Field()
+        name = Field(str)
+        email = Field(str)
         company = ReferenceField(Company)
 
 ...and simple usage would look like this:

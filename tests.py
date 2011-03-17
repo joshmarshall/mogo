@@ -28,11 +28,11 @@ DBNAME = '_mogotest'
 DELETE = True
 
 class Foo(Model):
-    bar = Field()
-    ref = Field()
+    bar = Field(str)
+    ref = Field(str)
     
 class Company(Model):
-    name = Field()
+    name = Field(str)
     
     @property
     def people(self):
@@ -40,8 +40,8 @@ class Company(Model):
     
 class Person(Model):
     company = ReferenceField(Company)
-    name = Field()
-    email = Field()
+    name = Field(str)
+    email = Field(str)
     
 class MogoTests(unittest.TestCase):
         
@@ -94,7 +94,20 @@ class MogoTests(unittest.TestCase):
         finally:
             foo.delete()
             conn.disconnect()
-        
+
+    def test_grab(self):
+        conn = connect(DBNAME)
+        foo = Foo()
+        foo.bar = 'grab'
+        idval = foo.save(safe=True)
+        newfoo = Foo.grab(str(idval))
+        try:
+            self.assertTrue(newfoo != None)
+            self.assertTrue(newfoo.id == idval)
+        finally:
+            foo.delete()
+            conn.disconnect()
+
     def test_find(self):
         conn = connect(DBNAME)
         foo = Foo()
@@ -184,7 +197,7 @@ class MogoTests(unittest.TestCase):
         finally:
             foo.delete()
             conn.disconnect()
-        
+
     def test_search_ref(self):
         conn = connect(DBNAME)
         company = Company(name="Foo, Inc.")
@@ -199,6 +212,27 @@ class MogoTests(unittest.TestCase):
             company.delete()
             conn.disconnect()
     
+    def test_group(self):
+        conn = pymongo.Connection()
+        db = conn[DBNAME]
+        for i in range(100):
+            db.counter.save({"alt": i % 2, "count": i})
+        class Counter(Model):
+            pass
+
+        result = Counter.group(
+            key = { 'alt': 1 },
+            condition = { 'alt': 0 },
+            reduce = 'function (obj, prev) { prev.count += obj.count; }',
+            initial = {'count': 0 }
+            )
+
+
+        try:
+            self.assertTrue(result[0]['count'] == 2450)
+        finally:
+            db.counter.drop()
+
     def tearDown(self):
         conn = pymongo.Connection()
         db = conn[DBNAME]

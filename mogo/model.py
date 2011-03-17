@@ -18,8 +18,8 @@ import hashlib
 
 class UserAccount(Model):
 
-    name = Field()
-    email = Field()
+    name = Field(str)
+    email = Field(str)
     company = ReferenceField(Company)
 
     # Custom method example
@@ -33,6 +33,7 @@ from mogo.connection import Connection
 from mogo.cursor import Cursor
 from mogo.field import Field, ReferenceField
 from pymongo.dbref import DBRef
+from pymongo.objectid import ObjectId
 from mogo.decorators import notinstancemethod
 import inspect
 
@@ -51,6 +52,7 @@ class Model(dict):
     """
     
     _id_field = '_id'
+    _id_type = ObjectId
     _name = None
     _collection = None
     _fields = None
@@ -228,7 +230,15 @@ class Model(dict):
         same arguments. 
         """
         return Cursor(cls, *args, **kwargs)
-        
+    
+    @classmethod
+    def group(cls, *args, **kwargs):
+        """
+        A quick wrapper for the pymongo collection map / reduce grouping.
+        Will do more with this later.
+        """
+        return cls._get_collection().group(*args, **kwargs)
+
     @classmethod
     def search(cls, **kwargs):
         """ 
@@ -245,6 +255,8 @@ class Model(dict):
     @classmethod
     def grab(cls, object_id):
         """ A shortcut to retrieve one object by its id. """
+        if type(object_id) != cls._id_type:
+            object_id = cls._id_type(object_id)
         return cls.find_one({cls._id_field: object_id})
         
     @classmethod
@@ -312,6 +324,14 @@ class Model(dict):
     def count(cls):
         """ Just a wrapper for the collection.count() method. """
         return cls.find().count()
+        
+    @notinstancemethod
+    def make_ref(cls, idval):
+        """ Generates a DBRef for a given id. """
+        if type(idval) != self._id_type:
+            # Casting to ObjectId (or str, or whatever is configured)
+            idval = self._id_type(id_val)
+        return DBRef(self._get_name(), idval)
         
     def get_ref(self):
         """ Returns a DBRef for an document. """

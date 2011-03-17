@@ -8,17 +8,16 @@ class Field(object):
     """
     
     default = None
-    strict_type = None
+    value_type = None
     
-    def __init__(self, strict_type=None, default=None):
+    def __init__(self, value_type=None, default=None):
         if default != None:
             raise NotImplementedError(
                 "Default values not yet implemented."
             )
-        if strict_type != None:
-            raise NotImplementedError(
-                "Strict typing has not yet beeen implemented."
-            )
+        if value_type == None:
+            value_type = str
+        self.value_type = value_type
         
 class ReferenceField(Field):
     """ Simply holds information about the reference model. """
