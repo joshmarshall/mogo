@@ -23,6 +23,7 @@ import pymongo.objectid
 import time
 import hashlib
 import sys
+from datetime import datetime
 
 DBNAME = '_mogotest'
 DELETE = True
@@ -30,6 +31,9 @@ DELETE = True
 class Foo(Model):
     bar = Field(str)
     ref = Field(str)
+    dflt = Field(str, default='dflt')
+    callme = Field(str, default=lambda: 'funtimes')
+    dtnow = Field(datetime, default=lambda: datetime.now())
     
 class Company(Model):
     name = Field(str)
@@ -55,6 +59,9 @@ class MogoTests(unittest.TestCase):
     def test_model(self):
         foo = Foo(bar='cheese')
         self.assertTrue(foo.bar == 'cheese')
+        self.assertTrue(foo.dflt == 'dflt')
+        self.assertTrue(foo.callme == 'funtimes')
+        self.assertTrue(isinstance(foo.dtnow, datetime))
         foo.bar = 'model'
         self.assertTrue(foo.bar == 'model')
         

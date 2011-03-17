@@ -70,7 +70,14 @@ class Model(dict):
             if not isinstance(attr, Field):
                 continue
             self._fields.append(attr_key)
-            value = attr.default
+
+            # set the default
+            if hasattr(attr.default, '__call__'):
+                # default is a callable
+                value = attr.default()
+            else:
+                value = attr.default
+
             if attr_key in kwargs.keys():
                 value = kwargs.get(attr_key)
             dict.__setattr__(self, attr_key, value)
