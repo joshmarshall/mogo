@@ -34,28 +34,28 @@ class Foo(Model):
     dflt = Field(str, default='dflt')
     callme = Field(str, default=lambda: 'funtimes')
     dtnow = Field(datetime, default=lambda: datetime.now())
-    
+
 class Company(Model):
     name = Field(str)
-    
+
     @property
     def people(self):
         return Person.search(company=self)
-    
+
 class Person(Model):
     company = ReferenceField(Company)
     name = Field(str)
     email = Field(str)
-    
+
 class MogoTests(unittest.TestCase):
-        
+
     def test_connect(self):
         conn = connect(DBNAME)
         self.assertTrue(isinstance(conn, pymongo.Connection))
         connection = Connection.instance()
         self.assertTrue(Connection.instance()._database == DBNAME)
         conn.disconnect()
-        
+
     def test_model(self):
         foo = Foo(bar='cheese')
         self.assertTrue(foo.bar == 'cheese')
@@ -64,7 +64,7 @@ class MogoTests(unittest.TestCase):
         self.assertTrue(isinstance(foo.dtnow, datetime))
         foo.bar = 'model'
         self.assertTrue(foo.bar == 'model')
-        
+
     def test_create_delete(self):
         conn = connect(DBNAME)
         foo = Foo()
@@ -76,7 +76,7 @@ class MogoTests(unittest.TestCase):
         finally:
             foo.delete()
             conn.disconnect()
-        
+
     def test_find_one(self):
         conn = connect(DBNAME)
         foo = Foo()
@@ -89,7 +89,7 @@ class MogoTests(unittest.TestCase):
         finally:
             foo.delete()
             conn.disconnect()
-            
+
     def test_count(self):
         conn = connect(DBNAME)
         foo = Foo()
@@ -135,7 +135,7 @@ class MogoTests(unittest.TestCase):
             foo.delete()
             foo2.delete()
             conn.disconnect()
-        
+
     def test_update(self):
         conn = connect(DBNAME)
         foo = Foo()
@@ -152,7 +152,7 @@ class MogoTests(unittest.TestCase):
         finally:
             foo.delete()
             conn.disconnect()
-        
+
     def test_ref(self):
         conn = connect(DBNAME)
         foo = Foo()
@@ -169,7 +169,7 @@ class MogoTests(unittest.TestCase):
         finally:
             result2.delete()
             conn.disconnect()
-        
+
     def test_search(self):
         conn = connect(DBNAME)
         foo = Foo()
@@ -182,7 +182,7 @@ class MogoTests(unittest.TestCase):
         finally:
             foo.delete()
             conn.disconnect()
-    
+
     def test_bad_remove(self):
         conn = connect(DBNAME)
         foo = Foo()
@@ -193,7 +193,7 @@ class MogoTests(unittest.TestCase):
         finally:
             foo.delete()
             conn.disconnect()
-            
+
     def test_bad_drop(self):
         conn = connect(DBNAME)
         foo = Foo()
@@ -218,7 +218,7 @@ class MogoTests(unittest.TestCase):
             user.delete()
             company.delete()
             conn.disconnect()
-    
+
     def test_group(self):
         conn = pymongo.Connection()
         db = conn[DBNAME]
@@ -247,7 +247,7 @@ class MogoTests(unittest.TestCase):
             for coll in [Foo, Person, Company]:
                 coll.remove()
                 coll.drop()
-        
+
 if __name__ == '__main__':
     if '--no-drop' in sys.argv:
         DELETE = False
