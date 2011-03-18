@@ -34,11 +34,19 @@ Requirements
 
 Installation
 ------------
-You should be able to grab it via git and run the following command
-on some Unix-y system:
+You can install it from PyPI with (may need sudo):
+
+    easy_install mogo
+
+or
+
+    pip install mogo
+
+Alternatively you should be able to grab it via git and run the following 
+command:
     
     python setup.py install
-    
+   
 Tests
 -----
 To run the tests, make sure you have a MongoDB instance running
@@ -74,8 +82,11 @@ However, a Field class has been added for self-documenting purposes
 type as the first argument to a Field -- not for type checking on saving
 or loading, but just for reference sake (and other libraries). All standard
 types should work, as well as pymongo.objectid.ObjectId and 
-pymongo.dbref.DBRef. Eventually, we'll add support for default values
-and strict type checking if it's configured for it (and desired).
+pymongo.dbref.DBRef.
+
+You can also pass an optional default=VALUE, where VALUE is either a 
+static value like "foo" or 42, or it is a callable that returns a static
+value like time.time() or datetime.now(). (Thanks @nod!)
 
 The  ReferenceField class allows (simple) model references to be used. 
 The "search" class method lets you pass in model instances and compare. 
@@ -83,7 +94,7 @@ The "search" class method lets you pass in model instances and compare.
 So most real world models will look more this:
 
     class Company(Model):
-        name = Field(str)
+        name = Field(unicode)
         age = Field(int)
         
         @property
@@ -91,8 +102,9 @@ So most real world models will look more this:
             return Person.search(company=self)
 
     class Person(Model):
-        name = Field(str)
-        email = Field(str)
+        name = Field(unicode)
+        email = Field(unicode)
+        joined = Field(float, datetime.now)
         company = ReferenceField(Company)
 
 ...and simple usage would look like this:
@@ -106,6 +118,8 @@ So most real world models will look more this:
     
     print [person.name for person in acme.people]
     # results in ["Joe",]
+    print person.joined
+    # results in something like 1300399372.87834
     
 Note -- only use a ReferenceField if you have been storing
 DBRef's as the values. If you've just been storing ObjectIds or 
@@ -122,13 +136,23 @@ Finally, a few are restricted to class-only access, like Model.remove
 and Model.drop (so you don't accidentally go wiping your collections
 by calling a class method on an instance.)
 
+The .order() on a find() or search() result gives you a shorthand
+to the .sort() method (which is also available.) You can just do:
+
+    Answers.search(value=42).order(question=ASC)
+
+...and to order by additional constraints, add more orders:
+
+    Animals.search().order(intelligence=ASC).order(digital_watches=DESC)
+
 The following is a simple user model that hashes a password, followed by 
 a usage example that shows some additional methods.
 
 MODEL EXAMPLE:
 
-    from mogo import Model, connect, Field
+    from mogo import Model, Field
     import hashlib
+    import datetime
 
     class User(Model):
         # By default, it uses the lowercase class name. To override,
@@ -137,9 +161,10 @@ MODEL EXAMPLE:
         
         # Document fields are optional (and don't do much)
         # but you'll probably want them for documentation.
-        name = Field()
-        username = Field()
-        password = Field()
+        name = Field(unicode)
+        username = Field(unicode)
+        password = Field(unicode)
+        joined = Field(datetime, datetime.now)
     
         def set_password(self, password):
             hash_password = hashlib.md5(password).hexdigest()
@@ -156,6 +181,8 @@ MODEL EXAMPLE:
         
 
 USAGE EXAMPLE
+
+    from mogo import connect, ASC, DESC
 
     conn = connect('mydb') # takes host, port, etc. as well.
     
@@ -178,7 +205,9 @@ USAGE EXAMPLE
     # Alternate searching
     test = User.search(name="Testing").first()
     # or...
-    test = User.find_one({"name": "Testing"})
+    test = User.find_one({"name": "Malcome Reynolds"})
+    # or to order...
+    test = User.find().order(joined=DESC).order(name=ASC)
     
     # Deleting...
     test.delete()
