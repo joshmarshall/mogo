@@ -16,7 +16,7 @@ probably want to change DBNAME. :)
 """
 
 import unittest
-from mogo import Model, connect, Field, ReferenceField
+from mogo import Model, connect, Field, ReferenceField, ASC, DESC
 from mogo.connection import Connection
 import pymongo
 import pymongo.objectid
@@ -234,11 +234,40 @@ class MogoTests(unittest.TestCase):
             initial = {'count': 0 }
             )
 
-
         try:
             self.assertTrue(result[0]['count'] == 2450)
         finally:
             db.counter.drop()
+        conn.disconnect()
+
+    def test_order(self):
+
+        class OrderTest(Model):
+            up = Field(int)
+            down = Field(int)
+            mod = Field(int)
+
+        for i in range(100):
+            obj = OrderTest(up=i, down=99-i, mod=i%10)
+            obj.save()
+
+        results = []
+        query1 = OrderTest.search().order(up=DESC)
+        query2 = OrderTest.search().order(mod=DESC).order(up=DESC)
+        for obj in query1:
+            results.append(obj.up)
+            if len(results) == 5:
+                break
+
+        try:
+            self.assertTrue(results == [99, 98, 97, 96, 95])
+            mod_result = query2.first()
+            self.assertTrue(mod_result.mod == 9)
+            self.assertTrue(mod_result.up == 99)
+        finally:
+            OrderTest.remove()
+            OrderTest.drop()
+
 
     def tearDown(self):
         conn = pymongo.Connection()
