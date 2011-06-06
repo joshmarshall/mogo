@@ -82,7 +82,7 @@ class Model(dict):
 
             if attr_key in kwargs.keys():
                 value = kwargs.get(attr_key)
-            dict.__setattr__(self, attr_key, value)
+            self.__setattr__(attr_key, value)
 
     def __getattribute__(self, name):
         value = dict.__getattribute__(self, name)
