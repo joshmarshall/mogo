@@ -65,6 +65,16 @@ class MogoTests(unittest.TestCase):
         foo.bar = 'model'
         self.assertTrue(foo.bar == 'model')
 
+    def test_save_defaults(self):
+        """
+        test that default values get saved alongside other values when creating
+        the model.
+        """
+        foo = Foo(bar='goat')
+        id_ = foo.save()
+        pulled_foo = Foo.grab(id_)
+        self.assertTrue(pulled_foo.dflt == 'dflt')
+
     def test_create_delete(self):
         conn = connect(DBNAME)
         foo = Foo()
