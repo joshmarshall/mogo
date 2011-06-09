@@ -22,7 +22,7 @@ class UserAccount(Model):
     name = Field(str)
     email = Field(str)
     company = ReferenceField(Company)
-    created_at = Field(datetime, lambda: datetime.now())
+    created_at = Field(datetime, datetime.now)
 
     # Custom method example
     def set_password(self, password):
@@ -37,7 +37,6 @@ from mogo.field import Field, ReferenceField
 from pymongo.dbref import DBRef
 from pymongo.objectid import ObjectId
 from mogo.decorators import notinstancemethod
-import inspect
 
 class Model(dict):
     """
@@ -286,7 +285,7 @@ class Model(dict):
     @classmethod
     def distinct(cls, key):
         """ Wrapper for collection distinct() """
-        return self.find().distinct(key)
+        return cls.find().distinct(key)
 
     # Map Reduce and Group methods eventually go here.
 
@@ -337,10 +336,10 @@ class Model(dict):
     @notinstancemethod
     def make_ref(cls, idval):
         """ Generates a DBRef for a given id. """
-        if type(idval) != self._id_type:
+        if type(idval) != cls._id_type:
             # Casting to ObjectId (or str, or whatever is configured)
-            idval = self._id_type(id_val)
-        return DBRef(self._get_name(), idval)
+            idval = cls._id_type(idval)
+        return DBRef(cls._get_name(), idval)
 
     def get_ref(self):
         """ Returns a DBRef for an document. """

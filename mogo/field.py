@@ -1,4 +1,4 @@
-import inspect
+""" The basic field attributes. """
 
 class Field(object):
     """
