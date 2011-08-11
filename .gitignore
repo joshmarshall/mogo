@@ -1,4 +1,7 @@
 *.pyc
+*.swp
+*.swo
+.coverage
 build/
 dist/
 MANIFEST

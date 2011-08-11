@@ -33,10 +33,14 @@ class UserAccount(Model):
 
 from mogo.connection import Connection
 from mogo.cursor import Cursor
-from mogo.field import Field, ReferenceField
+from mogo.field import Field, EmptyRequiredField
 from pymongo.dbref import DBRef
 from pymongo.objectid import ObjectId
 from mogo.decorators import notinstancemethod
+
+class UseModelNewMethod(Exception):
+    """ Raised when __init__ on a model is used incorrectly. """
+    pass
 
 class Model(dict):
     """
@@ -56,84 +60,60 @@ class Model(dict):
     _id_type = ObjectId
     _name = None
     _collection = None
+    _init_okay = False
     _fields = None
-    _updated = None
 
-    def __init__(self, *args, **kwargs):
-        """ Just initializes the fields... """
-        self._fields = []
+    @classmethod
+    def new(cls, **kwargs):
+        """ Overwrite in each model for custom instantiaion logic """
+        cls._update_fields()
+        cls._init_okay = True
+        instance = cls()
+        cls._init_okay = False
+        for key, value in kwargs.iteritems():
+            setattr(instance, key, value)
+        instance._updated = []
+        return instance
+
+    @classmethod
+    def _update_fields(cls):
+        """ Initializes the fields from class attributes """
+        if cls._fields is None:
+            cls._fields = {}
+            for attr_key, attr in cls.__dict__.iteritems():
+                if attr_key.startswith('_'):
+                    continue
+                if not isinstance(attr, Field):
+                    continue
+                cls._fields[id(attr)] = attr_key
+        return cls._fields
+
+    def __init__(self, **kwargs):
+        """ Just initializes the fields. This should ONLY be called
+        from .new() or the Cursor.
+        """
         self._updated = []
-        dict.__init__(self, *args, **kwargs)
-        for attr_key in dir(self.__class__):
-            if attr_key.startswith('_'):
-                continue
-            attr = getattr(self.__class__, attr_key)
+        if not self.__class__._init_okay and not kwargs.has_key("_id"):
+            raise UseModelNewMethod("You must use Model.new to create a "+
+                                    "new model instance.")
+        super(Model, self).__init__(**kwargs)
+        for field_name in self._fields.values():
+            attr = self.__class__.__dict__[field_name]
             if not isinstance(attr, Field):
                 continue
-            self._fields.append(attr_key)
+            self._fields[id(attr)] = field_name
 
             # set the default
-            if hasattr(attr.default, '__call__'):
-                # default is a callable
-                value = attr.default()
-            else:
-                value = attr.default
+            if attr.default is not None and not self.has_key(field_name):
+                self[field_name] = attr._get_default()
+        # Resetting dirty fields (new or coming from db)
+        self._updated = []
 
-            if attr_key in kwargs.keys():
-                value = kwargs.get(attr_key)
-            self.__setattr__(attr_key, value)
-
-    def __getattribute__(self, name):
-        value = dict.__getattribute__(self, name)
-        if type(value) is DBRef:
-            model = None
-            if self._fields and name in self._fields:
-                field = getattr(self.__class__, name)
-                if isinstance(field, ReferenceField):
-                    model = field.model
-            if not model:
-                if value.collection == self._get_name():
-                    model = self.__class__
-                else:
-                    # Making a "fake" model
-                    class NewModel(Model):
-                        _name = value.collection
-                    model = NewModel
-            # Lazy-loading now
-            find_spec = {model._id_field: value.id}
-            value = model.find_one(find_spec)
-            # "Caching"
-            dict.__setattr__(self, name, value)
-        return value
-
-    def __getattr__(self, name):
-        """ Anything not specified in the class pulls from the dict """
-        return self.get(name)
-        # Would do something like this:
-        # if not self.has_key(name):
-        #     return getattr(self._get_collection(), name)
-        # return self.get(name)
-        # but I'm not sure of all the implications yet.
-
-    def __setattr__(self, name, value):
-        """ Sets a value to the dict if it's not an attribute. """
-        if name not in dir(self) or (
-            self._fields and name in self._fields
-        ):
-            self._updated.append(name)
-            self.__setitem__(name, value)
-            if self._fields and name in self._fields:
-                dict.__setattr__(self, name, value)
-        else:
-            return dict.__setattr__(self, name, value)
-
-    def __setitem__(self, name, value):
-        orig_value = getattr(self, name)
-        if orig_value != value:
-            self._updated.append(name)
-        dict.__setitem__(self, name, value)
-        if self._fields and name in self._fields:
-            dict.__setattr__(self, name, value)
+    def _update_field_value(self, field, value):
+        """ Sets the value of a field and enters it in _updated """
+        if field not in self._updated:
+            self._updated.append(field)
+        self[field] = value
 
     def _get_id(self):
         """
@@ -160,6 +140,7 @@ class Model(dict):
             if isinstance(value, Model):
                 """ Save the ref! """
                 body[key] = DBRef(value._get_name(), value._get_id())
+
         return body
 
     def save(self, *args, **kwargs):
@@ -170,6 +151,16 @@ class Model(dict):
         body = {}
         object_id = self._get_id()
         body = self._get_updated()
+        field_names = self._fields.values()
+        for field_name in field_names:
+            # check that required attributes have been set before,
+            # or are currently being set
+            if not self.has_key(field_name):
+                field = self.__class__.__dict__[field_name]
+                if field.required:
+                    raise EmptyRequiredField("'%s' is required buy empty"
+                                             % field_name)
+
         if body == None:
             return object_id
         if not object_id:
@@ -178,7 +169,7 @@ class Model(dict):
             spec = {self._id_field: object_id}
             coll.update(spec, {"$set": body}, *args, **kwargs)
         self._updated = []
-        dict.__setitem__(self, self._id_field, object_id)
+        super(Model, self).__setitem__(self._id_field, object_id)
         return object_id
 
     def delete(self, *args, **kwargs):
