@@ -23,7 +23,20 @@ class Foo(Model):
     _ignore_me = Field()
 
 
+class Bar(Model):
+
+    uid = Field(unicode)
+
+    @classmethod
+    def new(cls):
+        instance = super(Bar, cls).new(uid=u"testing")
+        return instance
+
 class MogoTestModel(unittest.TestCase):
+
+    def test_model_new_override(self):
+        bar = Bar.new()
+        self.assertEqual(bar.uid, "testing")
 
     def test_model_fields_init(self):
         """ Test that the model properly retrieves the fields """
