@@ -31,7 +31,7 @@ class MogoFieldTests(unittest.TestCase):
         cls_dict = MockModel.__dict__
         field_names = ["typeless", "required", "field"]
         MockModel._fields = dict([(cls_dict[v].id, v) for v in field_names])
-        self.assertIsNone(mock.field)
+        self.assertEqual(mock.field, None)
 
         mock.field = u"testing"
         self.assertEqual(mock.field, "testing")
