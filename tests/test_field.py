@@ -12,7 +12,8 @@ class MogoFieldTests(unittest.TestCase):
         results = {"field": None}
 
         class MockModel(dict):
-            field = Field()
+            field = Field(unicode)
+            typeless = Field()
             required = Field(required=True)
 
             def _update_field_value(self, field, value):
@@ -21,17 +22,26 @@ class MogoFieldTests(unittest.TestCase):
             def __getitem__(self, field):
                 return results[field]
 
+
         mock = MockModel()
+        # checks if it is in the model fields (shouldn't be yet)
         self.assertRaises(AttributeError, getattr, mock, "field")
-        field_obj = mock.__class__.__dict__["field"]
-        field_id = id(field_obj)
-        required_obj = mock.__class__.__dict__["required"]
-        required_id = id(required_obj)
-        mock._fields = { field_id: "field", required_id: "required" }
+
+        # NOW we set up fields.
+        cls_dict = MockModel.__dict__
+        field_names = ["typeless", "required", "field"]
+        MockModel._fields = dict([(cls_dict[v].id, v) for v in field_names])
         self.assertIsNone(mock.field)
+
         mock.field = u"testing"
         self.assertEqual(mock.field, "testing")
         self.assertEqual(results["field"], "testing")
         self.assertRaises(TypeError, setattr, mock, "field", 5)
         mock.required = u"testing"
         self.assertEqual(results["required"], "testing")
+
+        # Testing type-agnostic fields
+        mock = MockModel()
+        # shouldn't raise anything
+        mock.typeless = 5
+        mock.typeless = "string"

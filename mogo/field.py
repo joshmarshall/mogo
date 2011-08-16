@@ -19,8 +19,6 @@ class Field(object):
     value_type = None
 
     def __init__(self, value_type=None, **kwargs):
-        if value_type == None:
-            value_type = unicode
         self.value_type = value_type
         self.required = kwargs.get("required", False) is True
         self.default = kwargs.get("default", None)

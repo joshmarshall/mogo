@@ -42,6 +42,18 @@ class UseModelNewMethod(Exception):
     """ Raised when __init__ on a model is used incorrectly. """
     pass
 
+class BiContextual(object):
+    """ Probably a terrible, terrible idea. """
+
+    def __init__(self, name):
+        self.name = name
+
+    def __get__(self, obj, type=None):
+        """ Return a properly named method. """
+        if obj is None:
+            return getattr(type, "_class_"+self.name)
+        return getattr(obj, "_instance_"+self.name)
+
 class Model(dict):
     """
     Subclass this class to create your documents. Basic usage
@@ -144,33 +156,53 @@ class Model(dict):
         return body
 
     def save(self, *args, **kwargs):
-        """
-        Determines whether to save or update, and does so.
-        """
+        """ Passthru to PyMongo's save after checking values """
         coll = self._get_collection()
-        body = {}
+        self._check_required()
+        new_object_id = coll.save(self.copy(), *args, **kwargs)
+        if not self._get_id():
+            super(Model, self).__setitem__(self._id_field, new_object_id)
+        return new_object_id
+
+    @classmethod
+    def _class_update(cls, *args, **kwargs):
+        """ Direct passthru to PyMongo's update. """
+        coll = cls._get_collection()
+        # Maybe should do something 'clever' with the query?
+        # E.g. transform Model instances to DBRefs automatically?
+        return coll.update(*args, **kwargs)
+
+    def _instance_update(self, **kwargs):
+        """ Wraps keyword arguments with setattr and then uses PyMongo's
+        update call.
+         """
         object_id = self._get_id()
+        spec = {self._id_field: object_id}
+        # Currently the only argument we "pass on" is "safe"
+        pass_kwargs = {}
+        if "safe" in kwargs:
+            pass_kwargs["safe"] = kwargs["safe"]
+        for key, value in kwargs.iteritems():
+            setattr(self, key, value)
         body = self._get_updated()
-        field_names = self._fields.values()
+        self._check_required(*body.keys())
+        coll = self._get_collection()
+        return coll.update(spec, { "$set":  body }, **pass_kwargs)
+
+    update = BiContextual("update")
+
+    def _check_required(self, *field_names):
+        """ Ensures that all required fields are set. """
+        if not field_names:
+            field_names = self._fields.values()
         for field_name in field_names:
             # check that required attributes have been set before,
             # or are currently being set
             if not self.has_key(field_name):
                 field = self.__class__.__dict__[field_name]
                 if field.required:
-                    raise EmptyRequiredField("'%s' is required buy empty"
+                    raise EmptyRequiredField("'%s' is required but empty"
                                              % field_name)
-
-        if body == None:
-            return object_id
-        if not object_id:
-            object_id = coll.save(body, *args, **kwargs)
-        else:
-            spec = {self._id_field: object_id}
-            coll.update(spec, {"$set": body}, *args, **kwargs)
-        self._updated = []
-        super(Model, self).__setitem__(self._id_field, object_id)
-        return object_id
 
     def delete(self, *args, **kwargs):
         """

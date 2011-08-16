@@ -28,6 +28,7 @@ DELETE = True
 
 class Foo(Model):
     bar = Field(unicode)
+    typeless = Field()
     dflt = Field(unicode, default=u'dflt')
     callme = Field(unicode, default=lambda: u'funtimes')
     dtnow = Field(datetime, default=lambda: datetime.now())
@@ -146,22 +147,54 @@ class MogoTests(unittest.TestCase):
             foo2.delete()
             conn.disconnect()
 
-    def test_update(self):
+    def test_save_over(self):
         conn = connect(DBNAME)
         foo = Foo.new()
         foo.bar = u'update'
         foo.save(safe=True)
         result = Foo.find_one({'bar':u'update'})
         result.bar = u"new update"
+        result["hidden"] = True
         result.save(safe=True)
         result2 = Foo.find_one({'bar': 'new update'})
         try:
             self.assertTrue(result == result2)
+            self.assertTrue(result["hidden"])
+            self.assertTrue(result2["hidden"])
             self.assertTrue(result2.bar == u'new update')
             self.assertTrue(result.bar == u'new update')
         finally:
             foo.delete()
             conn.disconnect()
+
+    def test_class_update(self):
+        class Mod(Model):
+            val = Field(int)
+            mod = Field(int)
+
+        for i in range(100):
+            foo = Mod.new(val=i, mod=i%2)
+            foo.save(safe=True)
+        Mod.update({"mod": 1}, {"$set": {"mod": 0}}, safe=True)
+        self.assertEquals(Mod.search(mod=0).count(), 51)
+        Mod.update({"mod": 1}, {"$set": {"mod": 0}}, multi=True, safe=True)
+        self.assertEquals(Mod.search(mod=0).count(), 100)
+
+    def test_instance_update(self):
+        class Mod(Model):
+            val = Field(int)
+            mod = Field(int)
+
+        for i in range(100):
+            foo = Mod.new(val=i, mod=i%2)
+            foo.save(safe=True)
+        foo = Mod.find_one({"mod": 1})
+        self.assertRaises(TypeError, foo.update, mod=u"testing", safe=True)
+        foo.update(mod=5, safe=True)
+        self.assertEquals(foo.mod, 5)
+        foo2 = Mod.grab(foo.id)
+        self.assertEquals(foo2.mod, 5)
+        self.assertEquals(Mod.search(mod=5).count(), 1)
 
     def test_ref(self):
         conn = connect(DBNAME)

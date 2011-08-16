@@ -64,6 +64,7 @@ class MogoTestModel(unittest.TestCase):
         foo = Foo.new()
         self.assertRaises(EmptyRequiredField, foo.save)
         self.assertRaises(EmptyRequiredField, getattr, foo, "required")
+        self.assertRaises(EmptyRequiredField, foo.update, foo=u"bar")
 
     def test_initializing_from_constructor(self):
         self.assertRaises(UseModelNewMethod, Foo)
