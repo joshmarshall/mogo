@@ -21,6 +21,7 @@ from mogo.connection import Connection
 import pymongo
 import pymongo.objectid
 import sys
+import logging
 from datetime import datetime
 
 DBNAME = '_mogotest'
@@ -147,16 +148,32 @@ class MogoTests(unittest.TestCase):
             foo2.delete()
             conn.disconnect()
 
+    def test_setattr_save(self):
+        conn = connect(DBNAME)
+        foo = Foo.new(bar=u"baz")
+        foo.save(safe=True)
+        self.assertTrue(Foo.grab(foo.id) != None)
+        setattr(foo, "bar", u"quz")
+        self.assertEqual(foo._updated, ["bar"])
+        self.assertEqual(foo.bar, u"quz")
+        self.assertEqual(getattr(foo, "bar"), "quz")
+        foo.save(safe=True)
+        result = Foo.grab(foo.id)
+        self.assertEqual(result.bar, "quz")
+        conn.disconnect()
+
     def test_save_over(self):
         conn = connect(DBNAME)
         foo = Foo.new()
         foo.bar = u'update'
         foo.save(safe=True)
         result = Foo.find_one({'bar':u'update'})
-        result.bar = u"new update"
         result["hidden"] = True
+        #result.bar = u"new update"
+        setattr(result, "bar", u"new update")
         result.save(safe=True)
         result2 = Foo.find_one({'bar': 'new update'})
+        self.assertEqual(result.id, result2.id)
         try:
             self.assertTrue(result == result2)
             self.assertTrue(result["hidden"])
