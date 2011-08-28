@@ -1,19 +1,19 @@
 Mogo 
 ====
-This library is a simple "schema-less" object wrapper around the 
-pymongo library (http://github.com/mongodb/mongo-python-driver). Mogo 
+This library is a simple "schema-less" object wrapper around the
+pymongo library (http://github.com/mongodb/mongo-python-driver). Mogo
 is not a full-featured ORM like MongoEngine -- it simply provides some
 syntactic sugar so that you can access any PyMongo result with
 dot-attribute syntax, as well as attach custom methods to the models.
 
-This emerged from my experience with PyMongo and MongoEngine -- 
+This emerged from my experience with PyMongo and MongoEngine --
 while pymongo is very simple to use and really flexible, it doesn't
-fully meet the MVC pattern because you are working with plain dicts 
+fully meet the MVC pattern because you are working with plain dicts
 and can't attach model logic anywhere.
 
 MongoEngine, on the other hand, is a heavier implementation on
 top of PyMongo, with Django-like syntax. While I liked MongoEngine,
-ultimately I wanted the schema-less flexibility of a dict with as 
+ultimately I wanted the schema-less flexibility of a dict with as
 little between my code and the database as possible.
 
 Mogo is licensed under the Apache License, Version 2.0
@@ -22,7 +22,8 @@ Mogo is licensed under the Apache License, Version 2.0
 Features
 --------
 * Object oriented design for MVC patterns
-* Models are dicts, so dot-attribute or key access is valid.
+* Models are dicts, so dot-attribute or key access is valid. Dot attribute
+  gives "smart" values, key access gives "raw" pymongo values.
 * Support for specifiying Field() attributes without requiring
   them or enforcing types.
 * Lazy-loading foreign key instances.
@@ -36,28 +37,32 @@ Installation
 ------------
 You can install it from PyPI with (may need sudo):
 
+    pip mogo
+
+or if you're old school:
+
     easy_install mogo
 
-or
-
-    pip install mogo
-
-Alternatively you should be able to grab it via git and run the following 
+Alternatively you should be able to grab it via git and run the following
 command:
-    
+
     python setup.py install
-   
+
 Tests
 -----
 To run the tests, make sure you have a MongoDB instance running
-on your local machine. It will write and delete entries to 
-mogotest db, so if by some bizarre coincidence you have / need that, 
+on your local machine. It will write and delete entries to
+mogotest db, so if by some bizarre coincidence you have / need that,
 you might want to alter the DBNAME constant in the mogo/tests.py
 file.
 
 After installation, or from the root project directory, run:
 
-    python tests.py
+    nosettest tests/
+
+If you don't have nose, it's available with:
+
+    pip install nose
 
 Usage
 -----
@@ -68,70 +73,88 @@ All the major classes and functions are available under mogo:
     from mogo import Model, Field, connect, ReferenceField
 
 You should be able to immediately use this with any existing data
-on a MongoDB installation. (DATA BE WARNED: THIS IS ALPHA!!) All you 
+on a MongoDB installation. (DATA BE WARNED: THIS IS ALPHA!!) All you
 need is a class with the proper collection name, and connect to
 the DB before you access it.
-        
+
 Yes, this means the most basic example is just a class with nothing:
-    
+
     class NewModel(Model):
         pass
-        
-However, a Field class has been added for self-documenting purposes
-(and features may be added later if necessary). You should pass in a
-type as the first argument to a Field -- not for type checking on saving
-or loading, but just for reference sake (and other libraries). All standard
-types should work, as well as pymongo.objectid.ObjectId and 
-pymongo.dbref.DBRef.
 
-You can also pass an optional default=VALUE, where VALUE is either a 
+BIG FAT NOTE: Currently, you MUST use the classmethod `new()` to
+instantiate a new model instance. This is for two reasons: a.), you can
+override / require certain arguments, and b.) we differentiate the
+method that Mongo uses to create a new object from the way a user does.
+This lets use use "any" values from PyMongo without failing validation,
+but limit what the user can provide in Python.
+
+A Field class is really necessary for any real ORM work. You pass in an
+(optional) type as the first argument, and it will STRICTLY validate.
+This means if you have Field(unicode) and try to set a normal
+string, it's going to yell at you. All standard types should work, as
+well as pymongo.objectid.ObjectId and pymongo.dbref.DBRef.
+
+If you don't want this validation, just don't pass in any type. If you
+want to customize getting and setting, you can pass in  `set\_callback`
+and `get\_callback` functions to the Field constructor.
+
+You can also pass an optional default=VALUE, where VALUE is either a
 static value like "foo" or 42, or it is a callable that returns a static
 value like time.time() or datetime.now(). (Thanks @nod!)
 
-The  ReferenceField class allows (simple) model references to be used. 
-The "search" class method lets you pass in model instances and compare. 
+The  ReferenceField class allows (simple) model references to be used.
+The "search" class method lets you pass in model instances and compare.
 
 So most real world models will look more this:
 
     class Company(Model):
-        name = Field(unicode)
-        age = Field(int)
-        
+        name = Field(unicode, required=True)
+        age = Field(int, default=10)
+        anyvalue = Field()
+
+        @classmethod
+        def new(cls, name):
+            """ Forces the end user to provide a name """
+            # validate name if you'd like
+            return super(Company, cls).new(name=name)
+
+
         @property
         def people(self):
             return Person.search(company=self)
 
     class Person(Model):
-        name = Field(unicode)
-        email = Field(unicode)
-        joined = Field(float, datetime.now)
+        name = Field(unicode, required=True)
+        email = Field(unicode, set_callback=validate_email)
+        joined = Field(float, default=datetime.now, required=True)
         company = ReferenceField(Company)
 
 ...and simple usage would look like this:
 
-    acme = Company(name="Acme, Inc.")
+    acme = Company.new(name=u"Acme, Inc.")
     acme.save()
     # Acme got a new employee. Congrats, Joe.
-    joe = Person(name="Joe", email="joe@whaddyaknow.com")
+    joe = Person.new(name=u"Joe", email=u"joe@whaddyaknow.com")
     joe.company = acme
     joe.save()
-    
+
     print [person.name for person in acme.people]
-    # results in ["Joe",]
+    # results in [u"Joe",]
     print person.joined
     # results in something like 1300399372.87834
-    
+
 Note -- only use a ReferenceField if you have been storing
-DBRef's as the values. If you've just been storing ObjectIds or 
-something, it may be easier for existing data to just use 
+DBRef's as the values. If you've just been storing ObjectIds or
+something, it may be easier for existing data to just use
 a Field() and do the retrieval logic yourself.
 
 Most of the basic collection methods are available on the model. Some
-are classmethods, like .find(), .find_one(), .count(), etc. Others
-simplify things like .save() (which handles whether to insert or update), 
-but still take all the same extra parameters as PyMongo's objects. A few 
-properties like .id provide shorthand access to standard keys. (You 
-can overwrite what .id returns by setting _id_field on the class.) 
+are classmethods, like .find(), .find\_one(), .count(), etc. Others
+simplify things like .save() (which handles whether to insert or update),
+but still take all the same extra parameters as PyMongo's objects. A few
+properties like .id provide shorthand access to standard keys. (You
+can overwrite what .id returns by setting \_id\_field on the class.)
 Finally, a few are restricted to class-only access, like Model.remove
 and Model.drop (so you don't accidentally go wiping your collections
 by calling a class method on an instance.)
@@ -145,7 +168,7 @@ to the .sort() method (which is also available.) You can just do:
 
     Animals.search().order(intelligence=ASC).order(digital_watches=DESC)
 
-The following is a simple user model that hashes a password, followed by 
+The following is a simple user model that hashes a password, followed by
 a usage example that shows some additional methods.
 
 MODEL EXAMPLE:
@@ -158,40 +181,40 @@ MODEL EXAMPLE:
         # By default, it uses the lowercase class name. To override,
         # you can either set cls.__name__, or use _name:
         _name = 'useraccount'
-        
+
         # Document fields are optional (and don't do much)
         # but you'll probably want them for documentation.
         name = Field(unicode)
         username = Field(unicode)
         password = Field(unicode)
         joined = Field(datetime, datetime.now)
-    
+
         def set_password(self, password):
             hash_password = hashlib.md5(password).hexdigest()
             self.password = hash_password
             self.save()
-        
+
         @classmethod
         def authenticate(cls, username, password):
             hash_password = hashlib.md5(password).hexdigest()
             return cls.find_one({
-                'username':username, 
+                'username':username,
                 'password':hash_password
             })
-        
+
 
 USAGE EXAMPLE
 
     from mogo import connect, ASC, DESC
 
     conn = connect('mydb') # takes host, port, etc. as well.
-    
+
     # Inserting...
-    new_user = User(username='test', name='Testing')
+    new_user = User.new(username=u'test', name=u'Testing')
     # notice that we're setting a field "role" that we
     # did not specify in the Model definition.
-    new_user.role = 'admin'
-    new_user.set_password('f00b4r')
+    new_user["role"] = u'admin'
+    new_user.set_password(u'f00b4r')
     new_id = new_user.save(safe=True) # using a PyMongo param
     user = User.grab(new_id) # grabs by ID
 
@@ -201,22 +224,24 @@ USAGE EXAMPLE
         print result.username, result.name
         result.set_password('hax0red!')
         result.save() # only saves updated fields this time
-        
+
+    # TODO: Document updating...
+
     # Alternate searching
-    test = User.search(name="Testing").first()
+    test = User.search(name=u"Testing").first()
     # or...
     test = User.find_one({"name": "Malcome Reynolds"})
     # or to order...
     test = User.find().order(joined=DESC).order(name=ASC)
-    
+
     # Deleting...
     test.delete()
-    
+
     # Remove and drop class methods
     User.remove({'role': 'admin'}) # wipes all admins
     User.drop() # removes collection entirely
 
-Scroll through the mogo/model.py file in the project to see the 
+Scroll through the mogo/model.py file in the project to see the
 methods available. If something is not well documented, ping me at the
 mailing list (see below).
 
@@ -224,7 +249,6 @@ TODO
 ----
 * Write more tests
 * Implement full PyMongo base compatibility
-* Implement (optional) type-checking and defaults.
 * Implement Map-Reduce and Group
 * Maybe, MAYBE look at gridfs.
 * Make faster where possible.
@@ -234,8 +258,7 @@ Contact
 * Mailing List Web: http://groups.google.com/group/mogo-python
 * Mailing List Address: mogo-python@googlegroups.com
 
-If you play with this in any way, I'd love to hear about it. It's
-really, really alpha -- I still have some collection methods to add
-to the base Model, and I haven't touched Map / Reduce results or
-anything really advanced, but hopefully this scratches someone else's
-itch too.
+If you play with this in any way, I'd love to hear about it. I still
+have some collection methods to add to the base Model, and I haven't
+touched Map / Reduce results or anything really advanced, but
+hopefully this scratches someone else's itch too.
