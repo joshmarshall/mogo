@@ -278,6 +278,7 @@ class Model(dict):
         Helper method that wraps keywords to dict and automatically
         turns instances into DBRefs.
         """
+        cls._update_fields()
         query = {}
         for key, value in kwargs.iteritems():
             if isinstance(value, Model):

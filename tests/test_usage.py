@@ -232,6 +232,8 @@ class MogoTests(unittest.TestCase):
 
     def test_search(self):
         conn = connect(DBNAME)
+        nothing = Foo.search(bar=u'whatever').first()
+        self.assertEqual(nothing, None)
         foo = Foo.new()
         foo.bar = u"search"
         foo.save(safe=True)
@@ -242,6 +244,17 @@ class MogoTests(unittest.TestCase):
         finally:
             foo.delete()
             conn.disconnect()
+
+    def test_search_before_new(self):
+        """ Testing the bug where fields are not populated before search. """
+        class Bar(Model):
+            field = Field()
+        conn = connect(DBNAME)
+        result_id = conn[DBNAME]["bar"].save({"field": "test"})
+        result = Bar.search(field="test").first()
+        self.assertEqual(result.id, result_id)
+        conn.disconnect()
+
 
     def test_bad_remove(self):
         conn = connect(DBNAME)
