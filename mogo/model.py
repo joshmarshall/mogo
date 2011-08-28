@@ -167,6 +167,7 @@ class Model(dict):
     @classmethod
     def _class_update(cls, *args, **kwargs):
         """ Direct passthru to PyMongo's update. """
+        cls._update_fields()
         coll = cls._get_collection()
         # Maybe should do something 'clever' with the query?
         # E.g. transform Model instances to DBRefs automatically?
@@ -248,6 +249,7 @@ class Model(dict):
         Just a wrapper for collection.find_one(). Uses all
         the same arguments.
         """
+        cls._update_fields()
         coll = cls._get_collection()
         result = coll.find_one(*args, **kwargs)
         if result:
@@ -260,6 +262,7 @@ class Model(dict):
         A wrapper for the pymongo cursor. Uses all the
         same arguments.
         """
+        cls._update_fields()
         return Cursor(cls, *args, **kwargs)
 
     @classmethod
@@ -268,6 +271,7 @@ class Model(dict):
         A quick wrapper for the pymongo collection map / reduce grouping.
         Will do more with this later.
         """
+        cls._update_fields()
         return cls._get_collection().group(*args, **kwargs)
 
     @classmethod
@@ -287,6 +291,7 @@ class Model(dict):
     @classmethod
     def grab(cls, object_id):
         """ A shortcut to retrieve one object by its id. """
+        cls._update_fields()
         if type(object_id) != cls._id_type:
             object_id = cls._id_type(object_id)
         return cls.find_one({cls._id_field: object_id})
@@ -294,21 +299,25 @@ class Model(dict):
     @classmethod
     def create_index(cls, *args, **kwargs):
         """ Wrapper for collection create_index() """
+        cls._update_fields()
         return cls._get_collection().create_index(*args, **kwargs)
 
     @classmethod
     def ensure_index(cls, *args, **kwargs):
         """ Wrapper for collection ensure_index() """
+        cls._update_fields()
         return cls._get_collection().ensure_index(*args, **kwargs)
 
     @classmethod
     def drop_indexes(cls, *args, **kwargs):
         """ Wrapper for collection drop_indexes() """
+        cls._update_fields()
         return cls._get_collection().drop_indexes(*args, **kwargs)
 
     @classmethod
     def distinct(cls, key):
         """ Wrapper for collection distinct() """
+        cls._update_fields()
         return cls.find().distinct(key)
 
     # Map Reduce and Group methods eventually go here.
@@ -316,6 +325,7 @@ class Model(dict):
     @classmethod
     def _get_collection(cls):
         """ Connects and caches the collection connection object. """
+        cls._update_fields()
         if not cls._collection:
             conn = Connection.instance()
             coll = conn.get_collection(cls._get_name())
@@ -328,6 +338,7 @@ class Model(dict):
         Retrieves the collection name.
         Overwrite _name to set it manually.
         """
+        cls._update_fields()
         if cls._name:
             return cls._name
         return cls.__name__.lower()
@@ -355,6 +366,7 @@ class Model(dict):
     @classmethod
     def count(cls):
         """ Just a wrapper for the collection.count() method. """
+        cls._update_fields()
         return cls.find().count()
 
     @notinstancemethod
