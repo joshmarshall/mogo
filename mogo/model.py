@@ -109,6 +109,8 @@ class Model(dict):
             raise UseModelNewMethod("You must use Model.new to create a "+
                                     "new model instance.")
         super(Model, self).__init__(**kwargs)
+        if self._fields is None: # hack, this should do it on its own
+            self.__class__._update_fields()
         for field_name in self._fields.values():
             attr = self.__class__.__dict__[field_name]
             if not isinstance(attr, Field):
