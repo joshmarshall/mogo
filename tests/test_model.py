@@ -34,6 +34,10 @@ class Bar(Model):
         instance = super(Bar, cls).new(uid=u"testing")
         return instance
 
+class ChildRef(Ref):
+    pass
+
+
 class MogoTestModel(unittest.TestCase):
 
     def test_model_new_override(self):
@@ -110,3 +114,9 @@ class MogoTestModel(unittest.TestCase):
         foo = Foo.new()
         foo["_id"] = 5
         self.assertEqual(str(foo), "<MogoModel:foo id:5>")
+
+    def test_reference_subclass(self):
+        foo = Foo()
+        child_ref = ChildRef(_id="testing") # hardcoding id
+        foo.reference = child_ref
+        self.assertEqual(foo["reference"].id, child_ref.id)
