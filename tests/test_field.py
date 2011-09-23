@@ -9,19 +9,11 @@ from mogo import Field
 class MogoFieldTests(unittest.TestCase):
 
     def test_field(self):
-        results = {"field": None}
 
         class MockModel(dict):
             field = Field(unicode)
             typeless = Field()
             required = Field(required=True)
-
-            def _update_field_value(self, field, value):
-                results[field] = value
-
-            def __getitem__(self, field):
-                return results[field]
-
 
         mock = MockModel()
         # checks if it is in the model fields (shouldn't be yet)
@@ -35,10 +27,10 @@ class MogoFieldTests(unittest.TestCase):
 
         mock.field = u"testing"
         self.assertEqual(mock.field, "testing")
-        self.assertEqual(results["field"], "testing")
+        self.assertEqual(mock["field"], "testing")
         self.assertRaises(TypeError, setattr, mock, "field", 5)
         mock.required = u"testing"
-        self.assertEqual(results["required"], "testing")
+        self.assertEqual(mock["required"], "testing")
 
         # Testing type-agnostic fields
         mock = MockModel()

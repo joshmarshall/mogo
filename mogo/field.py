@@ -2,8 +2,6 @@
 
 from pymongo.dbref import DBRef
 
-PASSTHRU = lambda x, y: y
-
 class EmptyRequiredField(Exception):
     """ Raised when a required field is not set on the model instance. """
     pass
@@ -27,6 +25,9 @@ class Field(object):
         self.id = id(self)
 
     def __get__(self, instance, klass=None):
+        if instance is None:
+            # Classes see the descriptor itself
+            return self
         value = self._get_value(instance)
         return value
 
@@ -72,9 +73,8 @@ class Field(object):
             )
         if self._set_callback:
             value = self._set_callback(value)
-        update_field = getattr(instance, "_update_field_value", PASSTHRU)
         field_name = self._get_field_name(instance)
-        update_field(field_name, value)
+        instance[field_name] = value
 
 
 class ReferenceField(Field):

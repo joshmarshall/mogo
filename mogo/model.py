@@ -31,16 +31,14 @@ class UserAccount(Model):
 
 """
 
+import mogo
 from mogo.connection import Connection
 from mogo.cursor import Cursor
 from mogo.field import Field, EmptyRequiredField
 from pymongo.dbref import DBRef
 from pymongo.objectid import ObjectId
 from mogo.decorators import notinstancemethod
-
-class UseModelNewMethod(Exception):
-    """ Raised when __init__ on a model is used incorrectly. """
-    pass
+import logging
 
 class BiContextual(object):
     """ Probably a terrible, terrible idea. """
@@ -53,6 +51,35 @@ class BiContextual(object):
         if obj is None:
             return getattr(type, "_class_"+self.name)
         return getattr(obj, "_instance_"+self.name)
+
+class InvalidUpdateCall(Exception):
+    """ Raised whenever update is called on a new model """
+    pass
+
+class UnknownField(Exception):
+    """ Raised whenever an invalid field is accessed and the
+    AUTO_CREATE_FIELDS is False.
+    """
+    pass
+
+class NewModelClass(type):
+    """ Metaclass for inheriting field lists """
+
+    def __new__(cls, name, bases, attributes):
+        # Emptying fields by default
+        attributes["__fields"] = {}
+        new_model = super(NewModelClass, cls).__new__(cls, name,
+            bases, attributes)
+        new_model._update_fields() # pre-populate fields
+        return new_model
+
+    def __setattr__(cls, name, value):
+        """ """
+        super(NewModelClass, cls).__setattr__(name, value)
+        if isinstance(value, Field):
+            # Update the fields, because they have changed
+            cls._update_fields()
+
 
 class Model(dict):
     """
@@ -68,66 +95,79 @@ class Model(dict):
         print result.password
     """
 
+    __metaclass__ = NewModelClass
+
     _id_field = '_id'
     _id_type = ObjectId
     _name = None
     _collection = None
     _init_okay = False
-    _fields = None
+    __fields = None
 
+    # DEPRECATED
     @classmethod
     def new(cls, **kwargs):
         """ Overwrite in each model for custom instantiaion logic """
-        cls._update_fields()
-        cls._init_okay = True
-        instance = cls()
-        cls._init_okay = False
-        for key, value in kwargs.iteritems():
-            setattr(instance, key, value)
-        instance._updated = []
+        instance = cls(**kwargs)
         return instance
-
-    @classmethod
-    def _update_fields(cls):
-        """ Initializes the fields from class attributes """
-        if cls._fields is None:
-            cls._fields = {}
-            for attr_key, attr in cls.__dict__.iteritems():
-                if attr_key.startswith('_'):
-                    continue
-                if not isinstance(attr, Field):
-                    continue
-                cls._fields[id(attr)] = attr_key
-        return cls._fields
 
     def __init__(self, **kwargs):
         """ Just initializes the fields. This should ONLY be called
         from .new() or the Cursor.
         """
-        self._updated = []
-        if not self.__class__._init_okay and not kwargs.has_key("_id"):
-            raise UseModelNewMethod("You must use Model.new to create a "+
-                                    "new model instance.")
-        super(Model, self).__init__(**kwargs)
-        if self._fields is None: # hack, this should do it on its own
-            self.__class__._update_fields()
+        super(Model, self).__init__()
+        is_new_instance = "_id" not in kwargs
+        for field, value in kwargs.iteritems():
+            private_field = field.startswith("_")
+            if private_field:
+                # Setting it in the dict, but leaving it alone
+                self[field] = value
+            elif is_new_instance:
+                if field in self._fields.values():
+                    # Running validation, if the field exists
+                    setattr(self, field, value)
+                else:
+                    if not mogo.AUTO_CREATE_FIELDS:
+                        raise UnknownField("Unknown field %s" % field)
+                    self.add_field(field, Field())
+                    setattr(self, field, value)
+            else:
+                self[field] = value
+
+
         for field_name in self._fields.values():
-            attr = self.__class__.__dict__[field_name]
+            attr = getattr(self.__class__, field_name)
             if not isinstance(attr, Field):
                 continue
-            self._fields[id(attr)] = field_name
+            self._fields[attr.id] = field_name
 
             # set the default
             if attr.default is not None and not self.has_key(field_name):
                 self[field_name] = attr._get_default()
-        # Resetting dirty fields (new or coming from db)
-        self._updated = []
 
-    def _update_field_value(self, field, value):
-        """ Sets the value of a field and enters it in _updated """
-        if field not in self._updated:
-            self._updated.append(field)
-        self[field] = value
+    @property
+    def _fields(self):
+        """ Property wrapper for class fields """
+        return self.__class__.__fields
+
+    @classmethod
+    def _update_fields(cls):
+        """ (Re)update the list of fields """
+        cls.__fields = {}
+        for attr_key in dir(cls):
+            if attr_key.startswith('_'):
+                continue
+            attr = getattr(cls, attr_key)
+            if not isinstance(attr, Field):
+                continue
+            cls.__fields[attr.id] = attr_key
+
+    @classmethod
+    def add_field(cls, field_name, new_field_descriptor):
+        """ Adds a new field to the class """
+        assert(isinstance(new_field_descriptor, Field))
+        setattr(cls, field_name, new_field_descriptor)
+        cls._update_fields()
 
     def _get_id(self):
         """
@@ -137,25 +177,6 @@ class Model(dict):
         'id' if desired.
         """
         return self.get(self._id_field)
-
-    def _get_updated(self):
-        """ Return recently updated contents of the model. """
-        body = {}
-        object_id = self.get(self._id_field)
-        if object_id and not self._updated:
-            return body
-        #body[self._id_field] = self.get(self._id_field)
-        if object_id:
-            for key in self._updated:
-                body[key] = self.get(key)
-        else:
-            body = self.copy()
-        for key, value in body.iteritems():
-            if isinstance(value, Model):
-                """ Save the ref! """
-                body[key] = DBRef(value._get_name(), value._get_id())
-
-        return body
 
     def save(self, *args, **kwargs):
         """ Passthru to PyMongo's save after checking values """
@@ -169,7 +190,6 @@ class Model(dict):
     @classmethod
     def _class_update(cls, *args, **kwargs):
         """ Direct passthru to PyMongo's update. """
-        cls._update_fields()
         coll = cls._get_collection()
         # Maybe should do something 'clever' with the query?
         # E.g. transform Model instances to DBRefs automatically?
@@ -180,14 +200,21 @@ class Model(dict):
         update call.
          """
         object_id = self._get_id()
+        if not object_id:
+            raise InvalidUpdateCall("Cannot call update on an unsaved model")
         spec = {self._id_field: object_id}
         # Currently the only argument we "pass on" is "safe"
         pass_kwargs = {}
         if "safe" in kwargs:
-            pass_kwargs["safe"] = kwargs["safe"]
+            pass_kwargs["safe"] = kwargs.pop("safe")
+        body = {}
         for key, value in kwargs.iteritems():
-            setattr(self, key, value)
-        body = self._get_updated()
+            if key in self._fields.values():
+                setattr(self, key, value)
+            else:
+                logging.warning("No field for %s" % key)
+                self[key] = value
+            body[key] = self[key] # PyMongo value
         self._check_required(*body.keys())
         coll = self._get_collection()
         return coll.update(spec, { "$set":  body }, **pass_kwargs)
@@ -202,7 +229,7 @@ class Model(dict):
             # check that required attributes have been set before,
             # or are currently being set
             if not self.has_key(field_name):
-                field = self.__class__.__dict__[field_name]
+                field = getattr(self.__class__, field_name)
                 if field.required:
                     raise EmptyRequiredField("'%s' is required but empty"
                                              % field_name)
@@ -251,7 +278,6 @@ class Model(dict):
         Just a wrapper for collection.find_one(). Uses all
         the same arguments.
         """
-        cls._update_fields()
         coll = cls._get_collection()
         result = coll.find_one(*args, **kwargs)
         if result:
@@ -264,7 +290,6 @@ class Model(dict):
         A wrapper for the pymongo cursor. Uses all the
         same arguments.
         """
-        cls._update_fields()
         return Cursor(cls, *args, **kwargs)
 
     @classmethod
@@ -273,7 +298,6 @@ class Model(dict):
         A quick wrapper for the pymongo collection map / reduce grouping.
         Will do more with this later.
         """
-        cls._update_fields()
         return cls._get_collection().group(*args, **kwargs)
 
     @classmethod
@@ -282,7 +306,6 @@ class Model(dict):
         Helper method that wraps keywords to dict and automatically
         turns instances into DBRefs.
         """
-        cls._update_fields()
         query = {}
         for key, value in kwargs.iteritems():
             if isinstance(value, Model):
@@ -293,7 +316,6 @@ class Model(dict):
     @classmethod
     def grab(cls, object_id):
         """ A shortcut to retrieve one object by its id. """
-        cls._update_fields()
         if type(object_id) != cls._id_type:
             object_id = cls._id_type(object_id)
         return cls.find_one({cls._id_field: object_id})
@@ -301,25 +323,21 @@ class Model(dict):
     @classmethod
     def create_index(cls, *args, **kwargs):
         """ Wrapper for collection create_index() """
-        cls._update_fields()
         return cls._get_collection().create_index(*args, **kwargs)
 
     @classmethod
     def ensure_index(cls, *args, **kwargs):
         """ Wrapper for collection ensure_index() """
-        cls._update_fields()
         return cls._get_collection().ensure_index(*args, **kwargs)
 
     @classmethod
     def drop_indexes(cls, *args, **kwargs):
         """ Wrapper for collection drop_indexes() """
-        cls._update_fields()
         return cls._get_collection().drop_indexes(*args, **kwargs)
 
     @classmethod
     def distinct(cls, key):
         """ Wrapper for collection distinct() """
-        cls._update_fields()
         return cls.find().distinct(key)
 
     # Map Reduce and Group methods eventually go here.
@@ -327,7 +345,6 @@ class Model(dict):
     @classmethod
     def _get_collection(cls):
         """ Connects and caches the collection connection object. """
-        cls._update_fields()
         if not cls._collection:
             conn = Connection.instance()
             coll = conn.get_collection(cls._get_name())
@@ -340,7 +357,6 @@ class Model(dict):
         Retrieves the collection name.
         Overwrite _name to set it manually.
         """
-        cls._update_fields()
         if cls._name:
             return cls._name
         return cls.__name__.lower()
@@ -368,7 +384,6 @@ class Model(dict):
     @classmethod
     def count(cls):
         """ Just a wrapper for the collection.count() method. """
-        cls._update_fields()
         return cls.find().count()
 
     @notinstancemethod
