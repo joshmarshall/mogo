@@ -5,4 +5,8 @@ from mogo.field import Field, ReferenceField
 from mogo.cursor import ASC, DESC
 from mogo.connection import connect
 
-__all__ = ['Model', 'connect', 'Field', 'ASC', 'DESC']
+# Allows flexible (probably dangerous) automatic field creation for
+# /really/ schemaless designs.
+AUTO_CREATE_FIELDS = False
+
+__all__ = ['Model', 'connect', 'Field', 'ASC', 'DESC', "AUTO_CREATE_FIELDS"]

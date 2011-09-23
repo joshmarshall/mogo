@@ -16,12 +16,12 @@ probably want to change DBNAME. :)
 """
 
 import unittest
+import mogo
 from mogo import Model, connect, Field, ReferenceField, DESC
 from mogo.connection import Connection
 import pymongo
 import pymongo.objectid
 import sys
-import logging
 from datetime import datetime
 
 DBNAME = '_mogotest'
@@ -44,9 +44,14 @@ class Company(Model):
         return Person.search(company=self)
 
 class Person(Model):
+    _name = "people"
     company = ReferenceField(Company)
     name = Field(str)
     email = Field(str)
+
+class SubPerson(Person):
+    """ Testing inheritance """
+    another_field = Field(str)
 
 
 class MogoTests(unittest.TestCase):
@@ -154,7 +159,6 @@ class MogoTests(unittest.TestCase):
         foo.save(safe=True)
         self.assertTrue(Foo.grab(foo.id) != None)
         setattr(foo, "bar", u"quz")
-        self.assertEqual(foo._updated, ["bar"])
         self.assertEqual(foo.bar, u"quz")
         self.assertEqual(getattr(foo, "bar"), "quz")
         foo.save(safe=True)
@@ -183,6 +187,29 @@ class MogoTests(unittest.TestCase):
         finally:
             foo.delete()
             conn.disconnect()
+
+
+    def test_flexible_fields(self):
+        """ Test that anything can be passed in """
+        try:
+            mogo.AUTO_CREATE_FIELDS = True
+            class Flexible(Model):
+                pass
+            instance = Flexible(foo="bar", age=5)
+            instance.save(safe=True)
+            self.assertEqual(instance["foo"], "bar")
+            self.assertEqual(instance.foo, "bar")
+            self.assertEqual(instance["age"], 5)
+            self.assertEqual(instance.age, 5)
+
+            retrieved = Flexible.find_one()
+            self.assertTrue(retrieved == instance)
+            # Test that the flexible fields were set
+            self.assertEqual(instance.foo, "bar")
+            self.assertEqual(instance.age, 5)
+        finally:
+            mogo.AUTO_CREATE_FIELDS = False
+
 
     def test_class_update(self):
         class Mod(Model):
@@ -337,6 +364,16 @@ class MogoTests(unittest.TestCase):
             OrderTest.remove()
             OrderTest.drop()
 
+    def test_inheritance(self):
+        """ Test model inheritance """
+        person = Person.new(name="Testing")
+        subperson = SubPerson.new(name="Testing", another_field="foobar")
+        person.save(safe=True)
+        subperson.save(safe=True)
+        self.assertEqual(Person.find().count(), 2)
+        # Doesn't automatically return instances of proper type yet
+        self.assertEqual(Person.find()[0].name, "Testing")
+        self.assertEqual(Person.find()[1]['another_field'], "foobar")
 
     def tearDown(self):
         conn = pymongo.Connection()
