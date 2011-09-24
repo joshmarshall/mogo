@@ -14,6 +14,7 @@ class MogoFieldTests(unittest.TestCase):
             field = Field(unicode)
             typeless = Field()
             required = Field(required=True)
+            string = Field(basestring)
 
         mock = MockModel()
         # checks if it is in the model fields (shouldn't be yet)
@@ -21,7 +22,7 @@ class MogoFieldTests(unittest.TestCase):
 
         # NOW we set up fields.
         cls_dict = MockModel.__dict__
-        field_names = ["typeless", "required", "field"]
+        field_names = ["typeless", "required", "field", "string"]
         MockModel._fields = dict([(cls_dict[v].id, v) for v in field_names])
         self.assertEqual(mock.field, None)
 
@@ -37,3 +38,8 @@ class MogoFieldTests(unittest.TestCase):
         # shouldn't raise anything
         mock.typeless = 5
         mock.typeless = "string"
+
+        # Testing issubclass comparison for type checking
+        # neither of these should raise a type error
+        mock = MockModel(string="foobar")
+        mock2 = MockModel(string=u"foobar")
