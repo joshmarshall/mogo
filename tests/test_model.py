@@ -1,7 +1,7 @@
 """ Various tests for the Model class """
 
 import mogo
-from mogo.model import Model, InvalidUpdateCall, UnknownField
+from mogo.model import PolyModel, Model, InvalidUpdateCall, UnknownField
 from mogo.field import ReferenceField, Field, EmptyRequiredField
 import unittest
 
@@ -33,6 +33,35 @@ class Bar(Model):
     def new(cls):
         instance = super(Bar, cls).new(uid=u"testing")
         return instance
+
+
+class Person(PolyModel):
+
+    @classmethod
+    def get_child_key(cls):
+        return "role"
+
+    role = Field(unicode, default=u"person")
+
+    def walk(self):
+        """ Default method """
+        return True
+
+@Person.register
+class Child(Person):
+    role = Field(unicode, default=u"child")
+
+@Person.register(name="infant")
+class Infant(Person):
+    age = Field(int, default=3)
+
+    def crawl(self):
+        """ Example of a custom method """
+        return True
+
+    def walk(self):
+        """ Overwriting a method """
+        return False
 
 class MogoTestModel(unittest.TestCase):
 
@@ -110,3 +139,28 @@ class MogoTestModel(unittest.TestCase):
         foo = Foo.new()
         foo["_id"] = 5
         self.assertEqual(str(foo), "<MogoModel:foo id:5>")
+
+    def test_inheritance(self):
+        self.assertEqual(Person._get_name(), Child._get_name())
+        self.assertEqual(Person._get_name(), Infant._get_name())
+        person = Person()
+        self.assertTrue(isinstance(person, Person))
+        self.assertTrue(person.walk())
+        self.assertEqual(person.role, "person")
+        with self.assertRaises(AttributeError):
+            person.crawl()
+        child = Person(role=u"child")
+        self.assertTrue(isinstance(child, Child))
+        child2 = Child()
+        self.assertTrue(child2.walk())
+        self.assertEqual(child2.role, "child")
+        child3 = Child(role=u"person")
+        self.assertTrue(isinstance(child3, Person))
+
+        infant = Infant()
+        self.assertTrue(isinstance(infant, Infant))
+        self.assertEqual(infant.age, 3)
+        self.assertTrue(infant.crawl())
+        self.assertFalse(infant.walk())
+        infant2 = Person(age=3, role=u"infant")
+        self.assertTrue(isinstance(infant2, Infant))

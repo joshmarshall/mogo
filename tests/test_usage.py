@@ -17,7 +17,7 @@ probably want to change DBNAME. :)
 
 import unittest
 import mogo
-from mogo import Model, connect, Field, ReferenceField, DESC
+from mogo import PolyModel, Model, connect, Field, ReferenceField, DESC
 from mogo.connection import Connection
 import pymongo
 import pymongo.objectid
@@ -50,8 +50,46 @@ class Person(Model):
     email = Field(str)
 
 class SubPerson(Person):
-    """ Testing inheritance """
+    """ Testing simple inheritance """
     another_field = Field(str)
+
+
+class Car(PolyModel):
+    """ Base model for alternate inheritance """
+    doors = Field(int, default=4)
+    wheels = Field(int, default=4)
+    type = Field(unicode, default=u"car")
+
+    @classmethod
+    def get_child_key(cls):
+        return "type"
+
+    def drive(self):
+        """ Example method to overwrite """
+        raise NotImplementedError("Implement this in child classes")
+
+@Car.register("sportscar")
+class SportsCar(Car):
+    """ Alternate car """
+    doors = Field(int, default=2)
+    type = Field(unicode, default=u"sportscar")
+
+    def drive(self):
+        """ Overwritten """
+        return True
+
+@Car.register
+class Convertible(SportsCar):
+    """ New methods """
+
+    _top_down = False
+
+    type = Field(unicode, default=u"convertible")
+
+    def toggle_roof(self):
+        """ Opens / closes roof """
+        self._top_down = not self._top_down
+        return self._top_down
 
 
 class MogoTests(unittest.TestCase):
@@ -364,8 +402,8 @@ class MogoTests(unittest.TestCase):
             OrderTest.remove()
             OrderTest.drop()
 
-    def test_inheritance(self):
-        """ Test model inheritance """
+    def test_simple_inheritance(self):
+        """ Test simple custom model inheritance """
         person = Person.new(name="Testing")
         subperson = SubPerson.new(name="Testing", another_field="foobar")
         person.save(safe=True)
@@ -374,6 +412,54 @@ class MogoTests(unittest.TestCase):
         # Doesn't automatically return instances of proper type yet
         self.assertEqual(Person.find()[0].name, "Testing")
         self.assertEqual(Person.find()[1]['another_field'], "foobar")
+
+    def test_poly_model_inheritance(self):
+        """ Test the mogo support for model inheritance """
+        self.assertEqual(Car._get_name(), SportsCar._get_name())
+        self.assertEqual(Car._get_collection(), SportsCar._get_collection())
+        car = Car()
+        with self.assertRaises(NotImplementedError):
+            car.drive()
+        # FIXME: Split these tests up.
+        self.assertEqual(car.doors, 4)
+        self.assertEqual(car.wheels, 4)
+        self.assertEqual(car.type, "car")
+        car.save(safe=True)
+        self.assertEqual(Car.find().count(), 1)
+        car2 = Car.find().first()
+        self.assertEqual(car, car2)
+        self.assertEqual(car.copy(), car2.copy())
+        self.assertTrue(isinstance(car2, Car))
+        sportscar = SportsCar()
+        sportscar.save(safe=True)
+        self.assertTrue(sportscar.drive())
+        self.assertEqual(sportscar.doors, 2)
+        self.assertEqual(sportscar.wheels, 4)
+        self.assertEqual(sportscar.type, "sportscar")
+        self.assertEqual(SportsCar.find().count(), 1)
+        sportscar = SportsCar.find().first()
+        self.assertEqual(sportscar.doors, 2)
+        self.assertEqual(sportscar.type, "sportscar")
+        self.assertEqual(Car.find().count(), 2)
+        sportscar2 = Car.find({"doors":2}).first()
+        self.assertTrue(isinstance(sportscar2, SportsCar))
+        self.assertTrue(sportscar2.drive())
+        convertible = Car(type=u"convertible")
+        convertible.save(safe=True)
+        self.assertEqual(convertible.doors, 2)
+        self.assertTrue(convertible.toggle_roof())
+        self.assertFalse(convertible.toggle_roof())
+
+        all_cars = list(Car.find())
+        self.assertEqual(len(all_cars), 3)
+        car, sportscar, convertible = all_cars
+        self.assertTrue(isinstance(car, Car))
+        self.assertTrue(isinstance(sportscar, SportsCar))
+        self.assertTrue(isinstance(convertible, Convertible))
+
+        self.assertEqual(SportsCar.search().count(), 1)
+
+        self.assertEqual(Convertible.find_one(), convertible)
 
     def tearDown(self):
         conn = pymongo.Connection()
