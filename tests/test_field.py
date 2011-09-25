@@ -4,7 +4,13 @@ in mogo Fields.
 """
 
 import unittest
-from mogo import Field
+from mogo import Field, ReferenceField
+
+class Base(object):
+    pass
+
+class Sub(Base):
+    pass
 
 class MogoFieldTests(unittest.TestCase):
 
@@ -15,6 +21,7 @@ class MogoFieldTests(unittest.TestCase):
             typeless = Field()
             required = Field(required=True)
             string = Field(basestring)
+            reference = ReferenceField(Base)
 
         mock = MockModel()
         # checks if it is in the model fields (shouldn't be yet)
@@ -42,4 +49,9 @@ class MogoFieldTests(unittest.TestCase):
         # Testing issubclass comparison for type checking
         # neither of these should raise a type error
         mock = MockModel(string="foobar")
-        mock2 = MockModel(string=u"foobar")
+        mock = MockModel(string=u"foobar")
+
+        base = Base()
+        sub = Sub()
+        mock = MockModel(reference=base)
+        mock = MockModel(reference=sub)

@@ -60,7 +60,7 @@ class Field(object):
     def _check_value_type(self, value):
         """ Verifies that a value is the proper type """
         if value is not None and self.value_type is not None:
-            valid = type(value) is self.value_type
+            valid = isinstance(value, self.value_type)
             if not valid:
                 return False
         return True

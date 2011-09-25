@@ -34,6 +34,8 @@ class Bar(Model):
         instance = super(Bar, cls).new(uid=u"testing")
         return instance
 
+class ChildRef(Ref):
+    pass
 
 class Person(PolyModel):
 
@@ -139,6 +141,12 @@ class MogoTestModel(unittest.TestCase):
         foo = Foo.new()
         foo["_id"] = 5
         self.assertEqual(str(foo), "<MogoModel:foo id:5>")
+
+    def test_reference_subclass(self):
+        foo = Foo()
+        child_ref = ChildRef(_id="testing") # hardcoding id
+        foo.reference = child_ref
+        self.assertEqual(foo["reference"].id, child_ref.id)
 
     def test_inheritance(self):
         self.assertEqual(Person._get_name(), Child._get_name())
