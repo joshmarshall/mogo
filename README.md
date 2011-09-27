@@ -1,4 +1,4 @@
-Mogo 
+Mogo
 ====
 This library is a simple "schema-less" object wrapper around the
 pymongo library (http://github.com/mongodb/mongo-python-driver). Mogo
@@ -31,16 +31,22 @@ Installation
 ------------
 You can install it from PyPI with:
 
-    pip mogo
+```sh
+pip mogo
+```
 
 or if you're old school:
 
-    easy_install mogo
+```sh
+easy_install mogo
+```
 
 Alternatively you should be able to grab it via git and run the following
 command:
 
-    python setup.py install
+```sh
+python setup.py install
+```
 
 Tests
 -----
@@ -52,11 +58,15 @@ file.
 
 After installation, or from the root project directory, run:
 
-    nosettest tests/
+```sh
+nosettest tests/
+```
 
 If you don't have nose, it's available with:
 
-    pip install nose
+```sh
+pip install nose
+```
 
 Importing
 ---------
@@ -64,10 +74,11 @@ Importing
 All the major classes and functions are available under the top level
 mogo module:
 
-    import mogo
-    # or
-    from mogo import Model, Field, connect, ReferenceField
-
+```python
+import mogo
+# or
+from mogo import Model, Field, connect, ReferenceField
+```
 
 Models
 ------
@@ -79,55 +90,69 @@ to the DB before you access it.
 
 Yes, this means the most basic example is just a class with nothing:
 
-    class Hero(Model):
-        pass
-        
+```python
+class Hero(Model):
+    pass
+```
+
 You can now do things like:
 
-    hero = Hero.find({"name": "Malcolm Reynolds"}).first()
-   
+```python
+hero = Hero.find({"name": "Malcolm Reynolds"}).first()
+```
+
 By default, it will use the lowercase name of the model as the
 collection name. So, in the above example, the equivalent pymongo
 call would be:
 
-    db.hero.find({"name": "Malcolm Reynolds"})[0]
+```python
+db.hero.find({"name": "Malcolm Reynolds"})[0]
+```
 
 Of course, Models are much more useful with methods:
 
-    class Hero(Model):
-        def swashbuckle(self):
-            print "%s is swashbuckling!" % self["name"]
-            
-    mal = Hero.find({"name": "Mal"}).first()
-    hero.swashbuckle()
-    # prints "Mal is swashbuckling!"
-    
+```python
+class Hero(Model):
+    def swashbuckle(self):
+        print "%s is swashbuckling!" % self["name"]
+
+mal = Hero.find({"name": "Mal"}).first()
+hero.swashbuckle()
+# prints "Mal is swashbuckling!"
+```
+
 Since Models just subclass dictionaries, you can use (most) of the
 normal dictionary methods (see `update` later on):
 
-    hero = Hero.find_one({"name": "Book"})
-    hero.get("powers", ["big darn hero"]) # returns ["big darn hero"]
-    hero_dict = hero.copy()
-    for key, value in hero.iteritems():
-        print key, value
-        
+```python
+hero = Hero.find_one({"name": "Book"})
+hero.get("powers", ["big darn hero"]) # returns ["big darn hero"]
+hero_dict = hero.copy()
+for key, value in hero.iteritems():
+    print key, value
+```
+
 To save or update values in the database, you use either `save` or
 `update`. (Imagine that.) If it is a new object, you have to `save`
 it first:
 
-    mal = Hero(name="Malcom Reynolds")
-    mal.save()
+```python
+mal = Hero(name="Malcom Reynolds")
+mal.save()
+```
 
 `save` will always overwrite the entire entry in the database.
 This is the same behavior that PyMongo uses, and it is helpful for
 simpler list and dictionary usage:
 
-    zoe = Hero(name="Zoe", powers=["warrior woman"])
-    zoe.save()
-    zoe["powers"].append("big darn hero")
-    zoe.save()
-    
-...however, this can ultimately be a performance issue, not to
+```python
+zoe = Hero(name="Zoe", powers=["warrior woman"])
+zoe.save()
+zoe["powers"].append("big darn hero")
+zoe.save()
+```
+
+...however, this can ultimately be inefficient, not to
 mention produce race conditions and have people saving over each
 other's changes.
 
@@ -138,21 +163,25 @@ depending on whether it is called from a class or from an instance.
 If it is called from a class, it just passes everything on to PyMongo
 like you might expect:
 
-    Hero.update({"name": "Malcolm Reynolds"},
-        {"$set":{"name": "Capt. Tightpants"}}, safe=True)
-    # equals the following in PyMongo
-    db.hero.update({"name": "Malcolm Reynolds"},
-        {"$set":{"name": "Capt. Tightpants"}}, safe=True)
-   
+```python
+Hero.update({"name": "Malcolm Reynolds"},
+    {"$set":{"name": "Capt. Tightpants"}}, safe=True)
+# equals the following in PyMongo
+db.hero.update({"name": "Malcolm Reynolds"},
+    {"$set":{"name": "Capt. Tightpants"}}, safe=True)
+```
+
 If it is called from an instance, it uses keyword arguments to set
 attributes, and then sends off a PyMongo "$set" update:
 
-    hero = Hero.find_one({"name": "River Tam"})
-    hero.update(powers=["telepathy", "mystic weirdness"])
-    # equals the following in PyMongo
-    hero = db.hero.find_one({"name": "River Tam"})
-    db.hero.update({"_id": hero["_id"]},
-        {"$set": {"powers": ["telepathy", "mystic weirdness"]}})
+```python
+hero = Hero.find_one({"name": "River Tam"})
+hero.update(powers=["telepathy", "mystic weirdness"])
+# equals the following in PyMongo
+hero = db.hero.find_one({"name": "River Tam"})
+db.hero.update({"_id": hero["_id"]},
+    {"$set": {"powers": ["telepathy", "mystic weirdness"]}})
+```
 
 Fields
 ------
@@ -163,43 +192,51 @@ you are using.
 
 Fields just go on the model like so:
 
-    class Hero(Model):
-        name = Field()
-        
+```python
+class Hero(Model):
+    name = Field()
+```
+
 ...and enable dot-attribute access, as well as some other goodies.
 Fields take several optional arguments -- the first argument is a
 type, and if used the field will validate any value passed as an
 instance of that (sub)class. For example:
 
-    class Hero(Model):
-        name = Field(unicode)
-        
-    # the following will raise a ValueError exception...
-    wash = Hero(name="Wash")
-    # but this is fine
-    wash = Hero(name=u"Wash")
-        
+```python
+class Hero(Model):
+    name = Field(unicode)
+
+# the following will raise a ValueError exception...
+wash = Hero(name="Wash")
+# but this is fine
+wash = Hero(name=u"Wash")
+```
+
 If you don't want this validation, just don't pass in any type. If you
 want to customize getting and setting, you can pass in  `set\_callback`
 and `get\_callback` functions to the Field constructor:
 
-    class Ship(Model):
-        type = Field(set_callback=lambda x: "Firefly")
-        
-    ship = Ship(type="firefly")
-    print ship.type #prints "Firefly"
-    ship.type =  "NCC 1701"
-    print ship.type #prints "Firefly"
-    # overwriting the "real" stored value
-    ship["type"] = "Millenium Falcon"
-    print ship.type # prints "Millenium Falcon"
+```python
+class Ship(Model):
+    type = Field(set_callback=lambda x: "Firefly")
+
+ship = Ship(type="firefly")
+print ship.type #prints "Firefly"
+ship.type =  "NCC 1701"
+print ship.type #prints "Firefly"
+# overwriting the "real" stored value
+ship["type"] = "Millenium Falcon"
+print ship.type # prints "Millenium Falcon"
+```
 
 You can also pass an optional default=VALUE, where VALUE is either a
 static value like "foo" or 42, or it is a callable that returns a static
 value like time.time() or datetime.now(). (Thanks @nod!)
 
-    class Ship(Model):
-        name = Field(unicode, default=u"Dormunder")
+```python
+class Ship(Model):
+    name = Field(unicode, default=u"Dormunder")
+```
 
 ReferenceField
 --------------
@@ -208,42 +245,46 @@ The "search" class method lets you pass in model instances and compare.
 
 So most real world models will look more this:
 
-    class Ship(Model):
-        name = Field(unicode, required=True)
-        age = Field(int, default=10)
-        type = Field(unicode, default="Firefly")
+```python
+class Ship(Model):
+    name = Field(unicode, required=True)
+    age = Field(int, default=10)
+    type = Field(unicode, default="Firefly")
 
-        @classmethod
-        def new(cls, name):
-            """ Creating a strict interface for new models """
+    @classmethod
+    def new(cls, name):
+        """ Creating a strict interface for new models """
 
-        @property
-        def crew(self):
-            return Crew.search(ship=self)
+    @property
+    def crew(self):
+        return Crew.search(ship=self)
 
-    class Crew(Model):
-        name = Field(unicode, required=True)
-        joined = Field(float, default=datetime.now, required=True)
-        ship = ReferenceField(Ship)
+class Crew(Model):
+    name = Field(unicode, required=True)
+    joined = Field(float, default=datetime.now, required=True)
+    ship = ReferenceField(Ship)
+```
 
 ...and simple usage would look like this:
 
-    serenity = Ship.new(u"Serenity")
-    serenity.save()
-    mal = Crew(name=u"Malcom Reynolds", ship=None)
-    mal.sav()
-    mal.ship = serenity
-    mal.save()
+```python
+serenity = Ship.new(u"Serenity")
+serenity.save()
+mal = Crew(name=u"Malcom Reynolds", ship=None)
+mal.sav()
+mal.ship = serenity
+mal.save()
 
-    print [person.name for person in serenity.crew]
-    # results in [u"Malcom Reynolds",]
-    print mal.joined
-    # prints out the datetime that the instance was created
+print [person.name for person in serenity.crew]
+# results in [u"Malcom Reynolds",]
+print mal.joined
+# prints out the datetime that the instance was created
+```
 
 Note -- only use a ReferenceField with legacy data if you have been
 storing DBRef's as the values. If you've just been storing ObjectIds or
 something, it may be easier for existing data to just use a Field() with
-a `(set|get)_callback` do the retrieval logic yourself.
+a `(set|get)\_callback` do the retrieval logic yourself.
 
 
 PolyModels
@@ -253,48 +294,52 @@ particularly well suited for storing and querying across inheritance
 relationships. I've recently added a new model type of `PolyModel` that
 lets you define this in a (hopefully) simple way.
 
-    class Person(PolyModel):
-        """ The 'base' person model """
-        name = Field(unicode, required=True)
-        role = Field(unicode, default=u"person")
-        
-        # custom method
-        def is_good(self):
-            """ All people are innately good. :) """
-            return True
-            
-        # required to determine what `type` something is
-        def get_model_key(self):
-            return "role"
-            
+```python
+class Person(PolyModel):
+    """ The 'base' person model """
+    name = Field(unicode, required=True)
+    role = Field(unicode, default=u"person")
+
+    # custom method
+    def is_good(self):
+        """ All people are innately good. :) """
+        return True
+
+    # required to determine what `type` something is
+    def get_model_key(self):
+        return "role"
+```
+
 As you can see, we use the "role" field to determine what type a person
 is -- by default, they are all just "person" and therefore should return
 a Person instance. We need to register some new people types:
-            
-    @Person.register
-    class Villain(Person):
-        role = Field(unicode, default=u"villain")
-        
-        # Overwriting method
-        def is_good(self):
-            """ All villains are not good """
-            return False
 
-    @Person.register("questionable")
-    class FlipFlopper(Person):
-        role = Field(unicode, default=u"questionable")
-        alliance = Field(unicode, default=u"good")
-        
-        def is_good(self):
-            return self.alliance == "good"
+```python
+@Person.register
+class Villain(Person):
+    role = Field(unicode, default=u"villain")
 
-        def trade_alliance(self):
-            if self.alliance == "good":
-                self.alliance = "bad"
-            else:
-                self.alliance = "good"
-            self.save()
-            
+    # Overwriting method
+    def is_good(self):
+        """ All villains are not good """
+        return False
+
+@Person.register("questionable")
+class FlipFlopper(Person):
+    role = Field(unicode, default=u"questionable")
+    alliance = Field(unicode, default=u"good")
+
+    def is_good(self):
+        return self.alliance == "good"
+
+    def trade_alliance(self):
+        if self.alliance == "good":
+            self.alliance = "bad"
+        else:
+            self.alliance = "good"
+        self.save()
+```
+
 The PolyModel.register decorator takes an optional value argument, which
 is what is used to compare to the field specified by `get_model_key` in
 the base model. It works with the following pseudo-logic:
@@ -307,24 +352,26 @@ the base model. It works with the following pseudo-logic:
 * Otherwise, use the base class (Person in this case)
 
 Using the above classes that we created / registered, here's a usage example:
-            
-     simon = Person(name="Simon Tam")
-     simon.save()
-     simon.is_good() # True
-     badger = Villain(name="Badger")
-     badger.save()
-     badger.is_good() # False
-     jayne = FlipFlopper(name="Jayne")
-     jayne.save()
-     
-     Person.find().count() # should be 3
-     jayne = Person.find(name="Jayne")
-     isinstance(jayne, FlipFlopper) # True
-     jayne.is_good() # True
-     jayne.trade_alliance()
-     jayne.is_good() # True
-     
-     Villain.find().count() # should be 1
+
+```python
+simon = Person(name="Simon Tam")
+simon.save()
+simon.is_good() # True
+badger = Villain(name="Badger")
+badger.save()
+badger.is_good() # False
+jayne = FlipFlopper(name="Jayne")
+jayne.save()
+
+Person.find().count() # should be 3
+jayne = Person.find(name="Jayne")
+isinstance(jayne, FlipFlopper) # True
+jayne.is_good() # True
+jayne.trade_alliance()
+jayne.is_good() # False
+
+Villain.find().count() # should be 1
+```
 
 Extra Verbage (i.e. stuff I haven't rewritten yet)
 --------------------------------------------------
