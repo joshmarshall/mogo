@@ -488,7 +488,7 @@ class MogoTests(unittest.TestCase):
         foo2 = FooWrapped()
         foo2.save(safe=True)
         self.assertEqual(coll.find().count(), 1)
-
+        session.disconnect()
 
     def test_connection_with_statement(self):
         """ Test the with statement alternate connection """
@@ -508,6 +508,7 @@ class MogoTests(unittest.TestCase):
         if DELETE:
             conn.drop_database(DBNAME)
             conn.drop_database(ALTDB)
+        conn.disconnect()
 
 if __name__ == '__main__':
     if '--no-drop' in sys.argv:

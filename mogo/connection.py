@@ -64,6 +64,10 @@ class Session(object):
         connection.connection = PyConnection(*self.args, **self.kwargs)
         self.connection = connection
 
+    def disconnect(self):
+        """ Just a wrapper for the PyConnection disconnect. """
+        self.connection.connection.disconnect()
+
     def __enter__(self):
         """ Open the connection """
         self.connect()
@@ -71,8 +75,7 @@ class Session(object):
 
     def __exit__(self, type, value, traceback):
         """ Close the connection """
-        self.connection.connection.disconnect()
-
+        self.disconnect()
 
 def connect(database, *args, **kwargs):
     """
