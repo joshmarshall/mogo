@@ -25,6 +25,7 @@ import sys
 from datetime import datetime
 
 DBNAME = '_mogotest'
+ALTDB = "_mogotest2"
 DELETE = True
 
 class Foo(Model):
@@ -33,6 +34,9 @@ class Foo(Model):
     dflt = Field(unicode, default=u'dflt')
     callme = Field(unicode, default=lambda: u'funtimes')
     dtnow = Field(datetime, default=lambda: datetime.now())
+
+    def __unicode__(self):
+        return "FOOBAR"
 
 Foo.ref = ReferenceField(Foo)
 
@@ -461,10 +465,49 @@ class MogoTests(unittest.TestCase):
 
         self.assertEqual(Convertible.find_one(), convertible)
 
+    def test_representation_methods(self):
+        """ Test __repr__, __str__, and __unicode__ """
+        repr_result = Foo().__repr__()
+        str_result = Foo().__str__()
+        unicode_result = Foo().__unicode__()
+        hypo = "FOOBAR"
+        self.assertTrue(repr_result == str_result == unicode_result == hypo)
+
+    def test_session(self):
+        """ Test using a session on a model """
+        foo = Foo()
+        foo.save(safe=True)
+        self.assertEqual(Foo.find().count(), 1)
+        session = mogo.session(ALTDB)
+        session.connect()
+        FooWrapped = Foo.use(session)
+        self.assertEqual(FooWrapped._get_name(), Foo._get_name())
+        self.assertEqual(FooWrapped.find().count(), 0)
+        coll = session.connection.get_collection("foo")
+        self.assertEqual(coll.find().count(), 0)
+        foo2 = FooWrapped()
+        foo2.save(safe=True)
+        self.assertEqual(coll.find().count(), 1)
+
+
+    def test_connection_with_statement(self):
+        """ Test the with statement alternate connection """
+        with mogo.session(ALTDB) as s:
+            foo = Foo.use(s)(bar=u"testing_with_statement")
+            foo.save(safe=True)
+            results = Foo.use(s).find({"bar": "testing_with_statement"})
+            self.assertEqual(results.count(), 1)
+            result = results.first()
+            self.assertEqual(result, foo)
+        count = Foo.find().count()
+        self.assertEqual(count, 0)
+
+
     def tearDown(self):
         conn = pymongo.Connection()
         if DELETE:
             conn.drop_database(DBNAME)
+            conn.drop_database(ALTDB)
 
 if __name__ == '__main__':
     if '--no-drop' in sys.argv:

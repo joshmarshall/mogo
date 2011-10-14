@@ -47,6 +47,33 @@ class Connection(object):
         """ Retrieve a collection from an existing connection. """
         return self.get_database(database=database)[collection]
 
+class Session(object):
+    """ This class just wraps a connection instance """
+
+    def __init__(self, database, *args, **kwargs):
+        """ Stores a connection instance """
+        self.connection = None
+        self.database = database
+        self.args = args
+        self.kwargs = kwargs
+
+    def connect(self):
+        """ Connect to MongoDB """
+        connection = Connection()
+        connection._database = self.database
+        connection.connection = PyConnection(*self.args, **self.kwargs)
+        self.connection = connection
+
+    def __enter__(self):
+        """ Open the connection """
+        self.connect()
+        return self
+
+    def __exit__(self, type, value, traceback):
+        """ Close the connection """
+        self.connection.connection.disconnect()
+
+
 def connect(database, *args, **kwargs):
     """
     Initializes a connection and the database. It returns
@@ -54,3 +81,9 @@ def connect(database, *args, **kwargs):
     can be called if necessary.
     """
     return Connection.connect(database, *args, **kwargs)
+
+def session(database, *args, **kwargs):
+    """
+    Returns a session object to be used with the `with` statement.
+    """
+    return Session(database, *args, **kwargs)

@@ -38,7 +38,6 @@ from mogo.field import Field, EmptyRequiredField
 from pymongo.dbref import DBRef
 from pymongo.objectid import ObjectId
 from mogo.decorators import notinstancemethod
-import inspect
 import logging
 
 class BiContextual(object):
@@ -63,6 +62,7 @@ class UnknownField(Exception):
     """
     pass
 
+
 class NewModelClass(type):
     """ Metaclass for inheriting field lists """
 
@@ -78,7 +78,7 @@ class NewModelClass(type):
         return new_model
 
     def __setattr__(cls, name, value):
-        """ """
+        """ Catching new field additions to classes """
         super(NewModelClass, cls).__setattr__(name, value)
         if isinstance(value, Field):
             # Update the fields, because they have changed
@@ -114,6 +114,17 @@ class Model(dict):
         """ Overwrite in each model for custom instantiaion logic """
         instance = cls(**kwargs)
         return instance
+
+    @classmethod
+    def use(cls, session):
+        """ Wraps the class to use a specific connection session """
+        class Wrapped(cls):
+            pass
+        Wrapped.__name__ = cls.__name__
+        connection = session.connection
+        collection = connection.get_collection(Wrapped._get_name())
+        Wrapped._collection = collection
+        return Wrapped
 
     def __init__(self, **kwargs):
         """ Just initializes the fields. This should ONLY be called
@@ -402,8 +413,17 @@ class Model(dict):
         """ Returns a DBRef for an document. """
         return DBRef(self._get_name(), self._get_id())
 
-    def __repr__(self):
+    def __unicode__(self):
+        """ Returns string representation. Overwrite in custom models. """
         return "<MogoModel:%s id:%s>" % (self._get_name(), self._get_id())
+
+    def __repr__(self):
+        """ Just points to __unicode__ """
+        return self.__unicode__()
+
+    def __str__(self):
+        """ Just points to __unicode__ """
+        return self.__unicode__()
 
 
 class PolyModel(Model):
