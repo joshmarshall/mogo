@@ -111,6 +111,16 @@ class Model(dict):
         instance = cls(**kwargs)
         return instance
 
+    #@classmethod
+    #def create(cls, **kwargs):
+    #    """ Create a new model and save it. """
+    #    if hasattr(cls, "new"):
+    #        model = cls.new(**kwargs)
+    #    else:
+    #        model = cls(**kwargs)
+    #    model.save()
+    #    return model
+
     def __init__(self, **kwargs):
         """ Just initializes the fields. This should ONLY be called
         from .new() or the Cursor.

@@ -72,6 +72,11 @@ class MogoTests(unittest.TestCase):
         foo.bar = u'model'
         self.assertTrue(foo.bar == u'model')
 
+    def test_model_create(self):
+        foo = Foo.create(bar=u"cheese")
+        self.assertEqual(foo.bar, "cheese")
+        self.assertEqual(Foo.find().count(), 1)
+
     def test_save_defaults(self):
         """
         test that default values get saved alongside other values when creating
