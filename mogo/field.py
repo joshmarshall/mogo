@@ -20,6 +20,7 @@ class Field(object):
         self.value_type = value_type
         self.required = kwargs.get("required", False) is True
         self.default = kwargs.get("default", None)
+        self.validators = kwargs.get("validators", None)
         self._set_callback = kwargs.get("set_callback")
         self._get_callback = kwargs.get("get_callback")
         self.id = id(self)
@@ -65,12 +66,35 @@ class Field(object):
                 return False
         return True
 
+    def _check_validators(self, value):
+        if not self.validators:
+            return True
+
+        if type(self.validators) in (tuple,list):
+            errors = []
+            for v in self.validators:
+                try:
+                    v.validate(value)
+                except Exception, e:
+                    errors.append(e)
+            return True if not errors else errors
+
+        raise TypeError('Validators must be a list or tuple')
+
+
     def __set__(self, instance, value):
         value_type = type(value)
         if not self._check_value_type(value):
             raise TypeError("Invalid type %s instead of %s" %
                 (value_type, self.value_type)
             )
+
+        is_valid = self._check_validators(value)
+        if not is_valid is True:
+            valEx = ValueError('Invalid input')
+            valEx.errors = {self._get_field_name(instance): is_valid}
+            raise valEx
+
         if self._set_callback:
             value = self._set_callback(value)
         field_name = self._get_field_name(instance)
