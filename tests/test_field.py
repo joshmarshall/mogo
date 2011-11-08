@@ -4,6 +4,8 @@ in mogo Fields.
 """
 
 import unittest
+
+import mogo
 from mogo import Field
 
 class MogoFieldTests(unittest.TestCase):
@@ -37,3 +39,18 @@ class MogoFieldTests(unittest.TestCase):
         # shouldn't raise anything
         mock.typeless = 5
         mock.typeless = "string"
+
+    def test_change_field_name(self):
+        """It should allow an override of a field's name."""
+        class MockModel(mogo.Model):
+            abbreviated = Field(unicode, field_name="abrv")
+
+        model = MockModel.new(abbreviated=u"lorem ipsum")
+
+        # Check the model's dictionary.
+        self.assertTrue("abrv" in model)
+        # Access by friendly name.
+        self.assertEqual(u"lorem ipsum", model.abbreviated)
+        # No access by field_name.
+        with self.assertRaises(AttributeError):
+            model.abrv

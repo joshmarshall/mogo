@@ -23,6 +23,7 @@ class Field(object):
         self._set_callback = kwargs.get("set_callback")
         self._get_callback = kwargs.get("get_callback")
         self.id = id(self)
+        self._field_name = kwargs.get("field_name", None)
 
     def __get__(self, instance, klass=None):
         if instance is None:
@@ -33,6 +34,8 @@ class Field(object):
 
     def _get_field_name(self, instance):
         """ Try to retrieve field name from instance """
+        if self._field_name:
+            return self._field_name
         fields = getattr(instance, "_fields")
         return fields[self.id]
 
