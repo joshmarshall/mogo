@@ -55,9 +55,10 @@ class MogoFieldTests(unittest.TestCase):
         class MockModel(mogo.Model):
             abbreviated = Field(unicode, field_name="abrv")
             long_name = Field(unicode, field_name="ln", required=True)
+            regular = Field(unicode, required=True)
 
         model = MockModel.new(abbreviated=u"lorem ipsum",
-            long_name=u"malarky")
+            long_name=u"malarky", regular=u"meh.")
 
         # Check the model's dictionary.
         self.assertTrue("abrv" in model)
@@ -97,3 +98,7 @@ class MogoFieldTests(unittest.TestCase):
         self.assertEqual(1, fetched.count())
         fetched = fetched.first()
         self.assertEqual(u"revia", fetched.abbreviated)
+
+        # Test search on regular fields.
+        fetched = MockModel.search(regular=u"meh.")
+        self.assertEqual(1, fetched.count())

@@ -247,7 +247,7 @@ class Model(dict):
             # check that required attributes have been set before,
             # or are currently being set
             field = getattr(self.__class__, field_name)
-            storage_name = field._get_field_name(field_name)
+            storage_name = field._get_field_name(self)
             if not self.has_key(storage_name):
                 if field.required:
                     raise EmptyRequiredField("'%s' is required but empty"
@@ -330,8 +330,12 @@ class Model(dict):
             if isinstance(value, Model):
                 value = value.get_ref()
             field = getattr(cls, key)
-            field_name = field._get_field_name(value)
-            query[field_name] = value
+
+            # Try using custom field name in field.
+            if field._field_name:
+                key = field._field_name
+
+            query[key] = value
         return cls.find(query)
 
     @classmethod

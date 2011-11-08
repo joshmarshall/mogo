@@ -32,11 +32,11 @@ class Field(object):
         value = self._get_value(instance)
         return value
 
-    def _get_field_name(self, instance):
+    def _get_field_name(self, model_instance):
         """ Try to retrieve field name from instance """
         if self._field_name:
             return self._field_name
-        fields = getattr(instance, "_fields")
+        fields = getattr(model_instance, "_fields")
         return fields[self.id]
 
     def _get_value(self, instance):
