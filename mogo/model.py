@@ -247,7 +247,7 @@ class Model(dict):
             # check that required attributes have been set before,
             # or are currently being set
             field = getattr(self.__class__, field_name)
-            storage_name = self.get_field_name(field_name)
+            storage_name = field._get_field_name(field_name)
             if not self.has_key(storage_name):
                 if field.required:
                     raise EmptyRequiredField("'%s' is required but empty"
