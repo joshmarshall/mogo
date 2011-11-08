@@ -49,8 +49,8 @@ class BiContextual(object):
     def __get__(self, obj, type=None):
         """ Return a properly named method. """
         if obj is None:
-            return getattr(type, "_class_"+self.name)
-        return getattr(obj, "_instance_"+self.name)
+            return getattr(type, "_class_" + self.name)
+        return getattr(obj, "_instance_" + self.name)
 
 class InvalidUpdateCall(Exception):
     """ Raised whenever update is called on a new model """
@@ -218,16 +218,24 @@ class Model(dict):
         if "safe" in kwargs:
             pass_kwargs["safe"] = kwargs.pop("safe")
         body = {}
+        checks = []
         for key, value in kwargs.iteritems():
             if key in self._fields.values():
                 setattr(self, key, value)
             else:
                 logging.warning("No field for %s" % key)
                 self[key] = value
-            body[key] = self[key] # PyMongo value
-        self._check_required(*body.keys())
+            # Attribute names to check.
+            checks.append(key)
+            # Field names in collection.
+            field = getattr(self.__class__, key)
+            field_name = field._get_field_name(self)
+            body[field_name] = self[field_name] # PyMongo value
+        logging.debug("Checking fields (%s).", checks)
+        self._check_required(*checks)
         coll = self._get_collection()
-        return coll.update(spec, { "$set":  body }, **pass_kwargs)
+        logging.debug("Setting body (%s)", body)
+        return coll.update(spec, {"$set":  body}, **pass_kwargs)
 
     update = BiContextual("update")
 
@@ -238,8 +246,9 @@ class Model(dict):
         for field_name in field_names:
             # check that required attributes have been set before,
             # or are currently being set
-            if not self.has_key(field_name):
-                field = getattr(self.__class__, field_name)
+            field = getattr(self.__class__, field_name)
+            storage_name = self.get_field_name(field_name)
+            if not self.has_key(storage_name):
                 if field.required:
                     raise EmptyRequiredField("'%s' is required but empty"
                                              % field_name)
@@ -320,7 +329,9 @@ class Model(dict):
         for key, value in kwargs.iteritems():
             if isinstance(value, Model):
                 value = value.get_ref()
-            query[key] = value
+            field = getattr(cls, key)
+            field_name = field._get_field_name(value)
+            query[field_name] = value
         return cls.find(query)
 
     @classmethod
