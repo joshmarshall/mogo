@@ -380,6 +380,22 @@ class MogoTests(unittest.TestCase):
         self.assertEqual(Person.find()[0].name, "Testing")
         self.assertEqual(Person.find()[1]['another_field'], "foobar")
 
+    def test_first(self):
+        conn = connect(DBNAME)
+        foo = Foo.new()
+        foo.bar = u"search"
+        foo.save(safe=True)
+        for x in xrange(3):
+            foo_x = Foo.new()
+            foo_x.bar = u"search"
+            foo_x.save(safe=True)
+        result = foo.first(bar=u"search")
+        try:
+            self.assertTrue(result == foo)
+        finally:
+            foo.delete()
+            conn.disconnect()
+
     def tearDown(self):
         conn = pymongo.Connection()
         if DELETE:

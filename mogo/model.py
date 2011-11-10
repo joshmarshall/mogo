@@ -339,6 +339,12 @@ class Model(dict):
         return cls.find(query)
 
     @classmethod
+    def first(cls, **kwargs):
+        """ Helper for returning Blah.search(foo=bar).first(). """
+        result = cls.search(**kwargs)
+        return result.first()
+
+    @classmethod
     def grab(cls, object_id):
         """ A shortcut to retrieve one object by its id. """
         if type(object_id) != cls._id_type:
