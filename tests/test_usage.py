@@ -17,7 +17,7 @@ probably want to change DBNAME. :)
 
 import unittest
 import mogo
-from mogo import Model, connect, Field, ReferenceField, DESC
+from mogo import Model, connect, Field, ReferenceField, DESC, ConstantField
 from mogo.connection import Connection
 import pymongo
 import pymongo.objectid
@@ -379,6 +379,63 @@ class MogoTests(unittest.TestCase):
         # Doesn't automatically return instances of proper type yet
         self.assertEqual(Person.find()[0].name, "Testing")
         self.assertEqual(Person.find()[1]['another_field'], "foobar")
+
+    def test_constant_field(self):
+        """ Test the ConstantField """
+        class ConstantModel(Model):
+            name = Field(unicode, required=True)
+            constant = ConstantField(int, required=True)
+
+        # this is fine
+        model = ConstantModel(name=u"whatever", constant=10)
+        self.assertEqual(10, model.constant)
+        # as is this
+        model.constant = 5
+        model.save(safe=True)
+        self.assertEqual(5, model.constant)
+
+        # this is also okay (since it's the same value)
+        model.constant = 5
+        self.assertEqual(5, model.constant)
+        # but this is not allowed
+        def set_constant():
+            model.constant = 10
+
+        self.assertRaises(ValueError, set_constant)
+        self.assertEqual(5, model.constant)
+
+    def test_custom_callbacks(self):
+        """ Test the various set and get callback options. """
+        class CustomField(Field):
+
+            def _get_callback(self, instance, value):
+                return 5
+
+            def _set_callback(self, instance, value):
+                return 8
+
+        def custom_get(instance, value):
+            return 1
+
+        def custom_set(instance, value):
+            return 2
+
+        class CustomModel(Model):
+            custom1 = Field(get_callback=custom_get, set_callback=custom_set)
+            custom2 = CustomField()
+            custom3 = CustomField(get_callback=custom_get,
+                set_callback=custom_set)
+
+        custom_model = CustomModel()
+        self.assertEqual(1, custom_model.custom1)
+        custom_model.custom1 = 15
+        self.assertEqual(2, custom_model["custom1"])
+        self.assertEqual(5, custom_model.custom2)
+        custom_model.custom2 = 15
+        self.assertEqual(8, custom_model["custom2"])
+        self.assertEqual(1, custom_model.custom3)
+        custom_model.custom3 = 15
+        self.assertEqual(2, custom_model["custom3"])
 
     def tearDown(self):
         conn = pymongo.Connection()
