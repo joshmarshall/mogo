@@ -1,7 +1,7 @@
 """ This is the mogo syntactic sugar library for MongoDB. """
 
 from mogo.model import Model
-from mogo.field import Field, ReferenceField
+from mogo.field import Field, ReferenceField, ConstantField
 from mogo.cursor import ASC, DESC
 from mogo.connection import connect
 
