@@ -19,8 +19,8 @@ class Foo(Model):
     field = Field()
     required = Field(required=True)
     default = Field(default="default")
-    callback = Field(get_callback=lambda x: "foo",
-                     set_callback=lambda x: "bar")
+    callback = Field(get_callback=lambda x, y: "foo",
+                     set_callback=lambda x, y: "bar")
     reference = ReferenceField(Ref)
     _ignore_me = Field()
 
@@ -74,7 +74,8 @@ class MogoTestModel(unittest.TestCase):
         """ Tests the ability to add a field. """
         class Testing(Model):
             pass
-        Testing.add_field("foo", Field(unicode, set_callback=lambda x: u"bar"))
+        Testing.add_field("foo", Field(unicode,
+            set_callback=lambda x, y: u"bar"))
         self.assertTrue(isinstance(Testing.foo, Field))
         testing = Testing(foo=u"whatever")
         self.assertEqual(testing["foo"], u"bar")
