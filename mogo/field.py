@@ -68,9 +68,12 @@ class Field(object):
     def __set__(self, instance, value):
         value_type = type(value)
         if not self._check_value_type(value):
-            raise TypeError("Invalid type %s instead of %s" %
-                (value_type, self.value_type)
-            )
+            try:
+                value = self.value_type(value)
+            except:
+                raise TypeError("Invalid type %s instead of %s" %
+                    (value_type, self.value_type)
+                )
         if self._set_callback:
             value = self._set_callback(value)
         field_name = self._get_field_name(instance)

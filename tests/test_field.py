@@ -22,6 +22,7 @@ class MogoFieldTests(unittest.TestCase):
             required = Field(required=True)
             string = Field(basestring)
             reference = ReferenceField(Base)
+            number = Field(float)
 
         mock = MockModel()
         # checks if it is in the model fields (shouldn't be yet)
@@ -29,14 +30,16 @@ class MogoFieldTests(unittest.TestCase):
 
         # NOW we set up fields.
         cls_dict = MockModel.__dict__
-        field_names = ["typeless", "required", "field", "string"]
+        field_names = ["typeless", "required", "field", "string", "number"]
         MockModel._fields = dict([(cls_dict[v].id, v) for v in field_names])
         self.assertEqual(mock.field, None)
 
         mock.field = u"testing"
         self.assertEqual(mock.field, "testing")
         self.assertEqual(mock["field"], "testing")
-        self.assertRaises(TypeError, setattr, mock, "field", 5)
+        mock.number = 5
+        self.assertRaises(TypeError, setattr, mock, "number", {})
+        self.assertEqual(mock.number, 5)
         mock.required = u"testing"
         self.assertEqual(mock["required"], "testing")
 
