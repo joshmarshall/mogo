@@ -49,8 +49,37 @@ class BiContextual(object):
     def __get__(self, obj, type=None):
         """ Return a properly named method. """
         if obj is None:
-            return getattr(type, "_class_"+self.name)
-        return getattr(obj, "_instance_"+self.name)
+            return getattr(type, "_class_" + self.name)
+        return getattr(obj, "_instance_" + self.name)
+
+class InvalidUpdateCall(Exception):
+    """ Raised whenever update is called on a new model """
+    pass
+
+class UnknownField(Exception):
+    """ Raised whenever an invalid field is accessed and the
+    AUTO_CREATE_FIELDS is False.
+    """
+    pass
+
+class NewModelClass(type):
+    """ Metaclass for inheriting field lists """
+
+    def __new__(cls, name, bases, attributes):
+        # Emptying fields by default
+        attributes["__fields"] = {}
+        new_model = super(NewModelClass, cls).__new__(cls, name,
+            bases, attributes)
+        new_model._update_fields() # pre-populate fields
+        return new_model
+
+    def __setattr__(cls, name, value):
+        """ """
+        super(NewModelClass, cls).__setattr__(name, value)
+        if isinstance(value, Field):
+            # Update the fields, because they have changed
+            cls._update_fields()
+
 
 class InvalidUpdateCall(Exception):
     """ Raised whenever update is called on a new model """
@@ -125,6 +154,16 @@ class Model(dict):
         collection = connection.get_collection(Wrapped._get_name())
         Wrapped._collection = collection
         return Wrapped
+
+    @classmethod
+    def create(cls, **kwargs):
+        """ Create a new model and save it. """
+        if hasattr(cls, "new"):
+            model = cls.new(**kwargs)
+        else:
+            model = cls(**kwargs)
+        model.save()
+        return model
 
     def __init__(self, **kwargs):
         """ Just initializes the fields. This should ONLY be called
@@ -223,16 +262,24 @@ class Model(dict):
         if "safe" in kwargs:
             pass_kwargs["safe"] = kwargs.pop("safe")
         body = {}
+        checks = []
         for key, value in kwargs.iteritems():
             if key in self._fields.values():
                 setattr(self, key, value)
             else:
                 logging.warning("No field for %s" % key)
                 self[key] = value
-            body[key] = self[key] # PyMongo value
-        self._check_required(*body.keys())
+            # Attribute names to check.
+            checks.append(key)
+            # Field names in collection.
+            field = getattr(self.__class__, key)
+            field_name = field._get_field_name(self)
+            body[field_name] = self[field_name] # PyMongo value
+        logging.debug("Checking fields (%s).", checks)
+        self._check_required(*checks)
         coll = self._get_collection()
-        return coll.update(spec, { "$set":  body }, **pass_kwargs)
+        logging.debug("Setting body (%s)", body)
+        return coll.update(spec, {"$set":  body}, **pass_kwargs)
 
     update = BiContextual("update")
 
@@ -243,8 +290,9 @@ class Model(dict):
         for field_name in field_names:
             # check that required attributes have been set before,
             # or are currently being set
-            if not self.has_key(field_name):
-                field = getattr(self.__class__, field_name)
+            field = getattr(self.__class__, field_name)
+            storage_name = field._get_field_name(self)
+            if not self.has_key(storage_name):
                 if field.required:
                     raise EmptyRequiredField("'%s' is required but empty"
                                              % field_name)
@@ -325,8 +373,20 @@ class Model(dict):
         for key, value in kwargs.iteritems():
             if isinstance(value, Model):
                 value = value.get_ref()
+            field = getattr(cls, key)
+
+            # Try using custom field name in field.
+            if field._field_name:
+                key = field._field_name
+
             query[key] = value
         return cls.find(query)
+
+    @classmethod
+    def first(cls, **kwargs):
+        """ Helper for returning Blah.search(foo=bar).first(). """
+        result = cls.search(**kwargs)
+        return result.first()
 
     @classmethod
     def grab(cls, object_id):

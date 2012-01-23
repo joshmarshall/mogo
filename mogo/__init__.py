@@ -1,7 +1,7 @@
 """ This is the mogo syntactic sugar library for MongoDB. """
 
 from mogo.model import Model, PolyModel
-from mogo.field import Field, ReferenceField
+from mogo.field import Field, ReferenceField, ConstantField
 from mogo.cursor import ASC, DESC
 from mogo.connection import connect, session
 
@@ -9,5 +9,5 @@ from mogo.connection import connect, session
 # /really/ schemaless designs.
 AUTO_CREATE_FIELDS = False
 
-__all__ = ['Model', 'PolyModel', 'Field', 'ReferenceField', 'connect',
-           'session', 'ASC', 'DESC', "AUTO_CREATE_FIELDS"]
+__all__ = ['Model', 'PolyModel', 'Field', 'ReferenceField', "ConstantField",
+            'connect', 'session', 'ASC', 'DESC', "AUTO_CREATE_FIELDS"]

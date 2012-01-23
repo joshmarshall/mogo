@@ -18,6 +18,7 @@ probably want to change DBNAME. :)
 import unittest
 import mogo
 from mogo import PolyModel, Model, connect, Field, ReferenceField, DESC
+from mogo import ConstantField
 from mogo.connection import Connection
 import pymongo
 import pymongo.objectid
@@ -54,7 +55,7 @@ class Person(Model):
     email = Field(str)
 
 class SubPerson(Person):
-    """ Testing simple inheritance """
+    """ Testing inheritance """
     another_field = Field(str)
 
 
@@ -95,7 +96,6 @@ class Convertible(SportsCar):
         self._top_down = not self._top_down
         return self._top_down
 
-
 class MogoTests(unittest.TestCase):
 
     def test_connect(self):
@@ -113,6 +113,11 @@ class MogoTests(unittest.TestCase):
         self.assertTrue(isinstance(foo.dtnow, datetime))
         foo.bar = u'model'
         self.assertTrue(foo.bar == u'model')
+
+    def test_model_create(self):
+        foo = Foo.create(bar=u"cheese")
+        self.assertEqual(foo.bar, "cheese")
+        self.assertEqual(Foo.find().count(), 1)
 
     def test_save_defaults(self):
         """
@@ -502,6 +507,78 @@ class MogoTests(unittest.TestCase):
         count = Foo.find().count()
         self.assertEqual(count, 0)
 
+    def test_constant_field(self):
+        """ Test the ConstantField """
+        class ConstantModel(Model):
+            name = Field(unicode, required=True)
+            constant = ConstantField(int, required=True)
+
+        # this is fine
+        model = ConstantModel(name=u"whatever", constant=10)
+        self.assertEqual(10, model.constant)
+        # as is this
+        model.constant = 5
+        model.save(safe=True)
+        self.assertEqual(5, model.constant)
+
+        # this is also okay (since it's the same value)
+        model.constant = 5
+        self.assertEqual(5, model.constant)
+        # but this is not allowed
+        def set_constant():
+            model.constant = 10
+
+        self.assertRaises(ValueError, set_constant)
+        self.assertEqual(5, model.constant)
+
+    def test_custom_callbacks(self):
+        """ Test the various set and get callback options. """
+        class CustomField(Field):
+
+            def _get_callback(self, instance, value):
+                return 5
+
+            def _set_callback(self, instance, value):
+                return 8
+
+        def custom_get(instance, value):
+            return 1
+
+        def custom_set(instance, value):
+            return 2
+
+        class CustomModel(Model):
+            custom1 = Field(get_callback=custom_get, set_callback=custom_set)
+            custom2 = CustomField()
+            custom3 = CustomField(get_callback=custom_get,
+                set_callback=custom_set)
+
+        custom_model = CustomModel()
+        self.assertEqual(1, custom_model.custom1)
+        custom_model.custom1 = 15
+        self.assertEqual(2, custom_model["custom1"])
+        self.assertEqual(5, custom_model.custom2)
+        custom_model.custom2 = 15
+        self.assertEqual(8, custom_model["custom2"])
+        self.assertEqual(1, custom_model.custom3)
+        custom_model.custom3 = 15
+        self.assertEqual(2, custom_model["custom3"])
+
+    def test_first(self):
+        conn = connect(DBNAME)
+        foo = Foo.new()
+        foo.bar = u"search"
+        foo.save(safe=True)
+        for x in xrange(3):
+            foo_x = Foo.new()
+            foo_x.bar = u"search"
+            foo_x.save(safe=True)
+        result = foo.first(bar=u"search")
+        try:
+            self.assertTrue(result == foo)
+        finally:
+            foo.delete()
+            conn.disconnect()
 
     def tearDown(self):
         conn = pymongo.Connection()

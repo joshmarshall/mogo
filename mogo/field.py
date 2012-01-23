@@ -20,9 +20,12 @@ class Field(object):
         self.value_type = value_type
         self.required = kwargs.get("required", False) is True
         self.default = kwargs.get("default", None)
-        self._set_callback = kwargs.get("set_callback")
-        self._get_callback = kwargs.get("get_callback")
+        set_callback = getattr(self, "_set_callback", None)
+        get_callback = getattr(self, "_get_callback", None)
+        self._set_callback = kwargs.get("set_callback", set_callback)
+        self._get_callback = kwargs.get("get_callback", get_callback)
         self.id = id(self)
+        self._field_name = kwargs.get("field_name", None)
 
     def __get__(self, instance, klass=None):
         if instance is None:
@@ -31,9 +34,11 @@ class Field(object):
         value = self._get_value(instance)
         return value
 
-    def _get_field_name(self, instance):
+    def _get_field_name(self, model_instance):
         """ Try to retrieve field name from instance """
-        fields = getattr(instance, "_fields")
+        if self._field_name:
+            return self._field_name
+        fields = getattr(model_instance, "_fields")
         return fields[self.id]
 
     def _get_value(self, instance):
@@ -47,7 +52,7 @@ class Field(object):
                 instance[field_name] = self._get_default()
         value = instance[field_name]
         if self._get_callback:
-            value = self._get_callback(value)
+            value = self._get_callback(instance, value)
         return value
 
     def _get_default(self):
@@ -72,7 +77,7 @@ class Field(object):
                 (value_type, self.value_type)
             )
         if self._set_callback:
-            value = self._set_callback(value)
+            value = self._set_callback(instance, value)
         field_name = self._get_field_name(instance)
         instance[field_name] = value
 
@@ -86,15 +91,25 @@ class ReferenceField(Field):
         super(ReferenceField, self).__init__(model, **kwargs)
         self.model = model
 
-    def _set_callback(self, value):
+    def _set_callback(self, instance, value):
         """ Resolves a Model to a DBRef """
         if value:
             value = DBRef(self.model._get_name(), value.id)
         return value
 
-    def _get_callback(self, value):
+    def _get_callback(self, instance, value):
         """ Retrieves the id, then retrieves the model from the db """
         if value:
             # Should be a DBRef
             return self.model.find_one({"_id": value.id})
         return value
+
+class ConstantField(Field):
+    """ Doesn't let you change the value after setting it. """
+
+    def _set_callback(self, instance, value):
+        """ Block changing values from being set. """
+        if instance._get_id() and value is not self._get_value(instance):
+            raise ValueError("Constant fields cannot be altered after saving.")
+        return value
+
