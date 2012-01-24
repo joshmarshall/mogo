@@ -29,11 +29,6 @@ class Bar(Model):
 
     uid = Field(unicode)
 
-    @classmethod
-    def new(cls):
-        instance = super(Bar, cls).new(uid=u"testing")
-        return instance
-
 class ChildRef(Ref):
     pass
 
@@ -67,13 +62,9 @@ class Infant(Person):
 
 class MogoTestModel(unittest.TestCase):
 
-    def test_model_new_override(self):
-        bar = Bar.new()
-        self.assertEqual(bar.uid, "testing")
-
     def test_model_fields_init(self):
         """ Test that the model properly retrieves the fields """
-        foo = Foo.new()
+        foo = Foo()
         self.assertTrue("field" in foo._fields.values())
         self.assertTrue("required" in foo._fields.values())
         self.assertTrue("callback" in foo._fields.values())
@@ -116,30 +107,23 @@ class MogoTestModel(unittest.TestCase):
         self.assertRaises(UnknownField, Testing, foo="bar")
 
     def test_default_field(self):
-        foo = Foo.new()
+        foo = Foo()
         self.assertEqual(foo["default"], "default")
         self.assertEqual(foo.default, "default")
 
     def test_required_fields(self):
-        foo = Foo.new()
+        foo = Foo()
         self.assertRaises(EmptyRequiredField, foo.save)
         self.assertRaises(EmptyRequiredField, getattr, foo, "required")
         self.assertRaises(InvalidUpdateCall, foo.update, foo=u"bar")
 
-    def test_new_constructor(self):
-        foo1 = Foo.new()
-        foo2 = Foo.new()
-        foo1.bar = u"testing"
-        foo2.bar = u"whatever"
-        self.assertNotEqual(foo1.bar, foo2.bar)
-
     def test_null_reference(self):
-        foo = Foo.new()
+        foo = Foo()
         foo.reference = None
         self.assertEqual(foo.reference, None)
 
     def test_repr(self):
-        foo = Foo.new()
+        foo = Foo()
         foo["_id"] = 5
         self.assertEqual(str(foo), "<MogoModel:foo id:5>")
 

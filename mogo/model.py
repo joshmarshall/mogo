@@ -166,11 +166,9 @@ class Model(dict):
         return model
 
     def __init__(self, **kwargs):
-        """ Just initializes the fields. This should ONLY be called
-        from .new() or the Cursor.
-        """
+        """ Creates an instance of the model, without saving it. """
         super(Model, self).__init__()
-        is_new_instance = "_id" not in kwargs
+        is_new_instance = self._id_field not in kwargs
         for field, value in kwargs.iteritems():
             private_field = field.startswith("_")
             if private_field:
@@ -334,6 +332,8 @@ class Model(dict):
         than helpful.
         """
         return self._get_id()
+
+    _id = id # for nod
 
     @classmethod
     def find_one(cls, *args, **kwargs):

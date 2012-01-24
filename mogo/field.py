@@ -86,8 +86,6 @@ class ReferenceField(Field):
     """ Simply holds information about the reference model. """
 
     def __init__(self, model, **kwargs):
-        kwargs.setdefault("set_callback", self._set_callback)
-        kwargs.setdefault("get_callback", self._get_callback)
         super(ReferenceField, self).__init__(model, **kwargs)
         self.model = model
 
@@ -113,3 +111,31 @@ class ConstantField(Field):
             raise ValueError("Constant fields cannot be altered after saving.")
         return value
 
+
+class EnumField(Field):
+    """ Only accepts values from a set / list of values.
+    The first argument should be an iterable with acceptable values, or
+    optionally a callable that takes the instance as the first argument and
+    returns an iterable with acceptable values.
+
+    For instance, both of these are valid:
+
+        EnumField(("a", "b", 5))
+        EnumField(lambda x: [5, 6])
+
+    """
+
+    def __init__(self, iterable, **kwargs):
+        super(EnumField, self).__init__(**kwargs)
+        self.iterable = iterable
+
+    def _set_callback(self, instance, value):
+        """ Checks for value in iterable. """
+        accepted_values = self.iterable
+        if callable(self.iterable):
+            accepted_values = self.iterable(instance)
+        if value not in accepted_values:
+            # not listing the accepted values because that might be bad,
+            # for example, if it's a cursor or other exhaustible iterator
+            raise ValueError("Value %s not in acceptable values." % value)
+        return value

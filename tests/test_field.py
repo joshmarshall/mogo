@@ -4,7 +4,7 @@ in mogo Fields.
 """
 
 import unittest
-from mogo import Field, ReferenceField, connect, Model
+from mogo import Field, ReferenceField, connect, Model, EnumField
 
 class Base(object):
     pass
@@ -73,7 +73,7 @@ class MogoFieldTests(unittest.TestCase):
             long_name = Field(unicode, field_name="ln", required=True)
             regular = Field(unicode, required=True)
 
-        model = MockModel.new(abbreviated=u"lorem ipsum",
+        model = MockModel(abbreviated=u"lorem ipsum",
             long_name=u"malarky", regular=u"meh.")
 
         # Check the model's dictionary.
@@ -118,3 +118,20 @@ class MogoFieldTests(unittest.TestCase):
         # Test search on regular fields.
         fetched = MockModel.search(regular=u"meh.")
         self.assertEqual(1, fetched.count())
+
+    def test_enum_field(self):
+        """ Test the enum field """
+        class EnumModel1(Model):
+            field = EnumField((1, 3, "what"))
+
+        instance = EnumModel1(field=3)
+        self.assertEqual(instance.field, 3)
+        with self.assertRaises(ValueError):
+            instance = EnumModel1(field=False)
+
+        class EnumModel2(Model):
+            field = EnumField(lambda x: x.__class__.__name__)
+        EnumModel2(field="EnumModel2")
+        with self.assertRaises(ValueError):
+            EnumModel1(field="nottheclassname")
+

@@ -41,6 +41,13 @@ class Foo(Model):
 
 Foo.ref = ReferenceField(Foo)
 
+class FooWithNew(Model):
+    bar = Field(unicode)
+
+    @classmethod
+    def new(cls):
+        return cls(bar=u"whatever")
+
 class Company(Model):
     name = Field(str)
 
@@ -106,7 +113,7 @@ class MogoTests(unittest.TestCase):
         conn.disconnect()
 
     def test_model(self):
-        foo = Foo.new(bar=u'cheese')
+        foo = Foo(bar=u'cheese')
         self.assertTrue(foo.bar == u'cheese')
         self.assertTrue(foo.dflt == u'dflt')
         self.assertTrue(foo.callme == u'funtimes')
@@ -118,20 +125,24 @@ class MogoTests(unittest.TestCase):
         foo = Foo.create(bar=u"cheese")
         self.assertEqual(foo.bar, "cheese")
         self.assertEqual(Foo.find().count(), 1)
+        # testing with a classmethod "new" defined.
+        foo = FooWithNew.create()
+        self.assertIsNotNone(foo._id)
+        self.assertEqual(foo.bar, u"whatever")
 
     def test_save_defaults(self):
         """
         test that default values get saved alongside other values when creating
         the model.
         """
-        foo = Foo.new(bar=u'goat')
+        foo = Foo(bar=u'goat')
         id_ = foo.save(safe=True)
         raw_result = Foo._collection.find_one({"_id": id_})
         self.assertTrue(raw_result["dflt"] == u'dflt')
 
     def test_create_delete(self):
         conn = connect(DBNAME)
-        foo = Foo.new()
+        foo = Foo()
         foo.bar = u'create_delete'
         idval = foo.save(safe=True)
         try:
@@ -143,7 +154,7 @@ class MogoTests(unittest.TestCase):
 
     def test_find_one(self):
         conn = connect(DBNAME)
-        foo = Foo.new()
+        foo = Foo()
         foo.bar = u'find_one'
         idval = foo.save(safe=True)
         foo2 = Foo.find_one({u'bar':u'find_one'})
@@ -156,7 +167,7 @@ class MogoTests(unittest.TestCase):
 
     def test_count(self):
         conn = connect(DBNAME)
-        foo = Foo.new()
+        foo = Foo()
         foo.bar = u'count'
         foo.save(safe=True)
         count = Foo.count()
@@ -168,23 +179,24 @@ class MogoTests(unittest.TestCase):
 
     def test_grab(self):
         conn = connect(DBNAME)
-        foo = Foo.new()
+        foo = Foo()
         foo.bar = u'grab'
         idval = foo.save(safe=True)
         newfoo = Foo.grab(str(idval))
         try:
             self.assertTrue(newfoo != None)
             self.assertTrue(newfoo.id == idval)
+            self.assertTrue(newfoo._id == idval)
         finally:
             foo.delete()
             conn.disconnect()
 
     def test_find(self):
         conn = connect(DBNAME)
-        foo = Foo.new()
+        foo = Foo()
         foo.bar = u'find'
         foo.save(safe=True)
-        foo2 = Foo.new()
+        foo2 = Foo()
         foo2.bar = u'find'
         foo2.save()
         result = Foo.find({'bar':u'find'})
@@ -202,7 +214,7 @@ class MogoTests(unittest.TestCase):
 
     def test_setattr_save(self):
         conn = connect(DBNAME)
-        foo = Foo.new(bar=u"baz")
+        foo = Foo(bar=u"baz")
         foo.save(safe=True)
         self.assertTrue(Foo.grab(foo.id) != None)
         setattr(foo, "bar", u"quz")
@@ -215,7 +227,7 @@ class MogoTests(unittest.TestCase):
 
     def test_save_over(self):
         conn = connect(DBNAME)
-        foo = Foo.new()
+        foo = Foo()
         foo.bar = u'update'
         foo.save(safe=True)
         result = Foo.find_one({'bar':u'update'})
@@ -264,7 +276,7 @@ class MogoTests(unittest.TestCase):
             mod = Field(int)
 
         for i in range(100):
-            foo = Mod.new(val=i, mod=i%2)
+            foo = Mod(val=i, mod=i%2)
             foo.save(safe=True)
         Mod.update({"mod": 1}, {"$set": {"mod": 0}}, safe=True)
         self.assertEquals(Mod.search(mod=0).count(), 51)
@@ -277,7 +289,7 @@ class MogoTests(unittest.TestCase):
             mod = Field(int)
 
         for i in range(100):
-            foo = Mod.new(val=i, mod=i%2)
+            foo = Mod(val=i, mod=i%2)
             foo.save(safe=True)
         foo = Mod.find_one({"mod": 1})
         self.assertRaises(TypeError, foo.update, mod=u"testing", safe=True)
@@ -289,7 +301,7 @@ class MogoTests(unittest.TestCase):
 
     def test_ref(self):
         conn = connect(DBNAME)
-        foo = Foo.new()
+        foo = Foo()
         foo.bar = u"ref"
         foo.save(safe=True)
         #result = Foo.find_one({"bar": "ref"})
@@ -308,7 +320,7 @@ class MogoTests(unittest.TestCase):
         conn = connect(DBNAME)
         nothing = Foo.search(bar=u'whatever').first()
         self.assertEqual(nothing, None)
-        foo = Foo.new()
+        foo = Foo()
         foo.bar = u"search"
         foo.save(safe=True)
         result = foo.search(bar=u"search")
@@ -332,7 +344,7 @@ class MogoTests(unittest.TestCase):
 
     def test_bad_remove(self):
         conn = connect(DBNAME)
-        foo = Foo.new()
+        foo = Foo()
         foo.bar = u"bad_remove"
         foo.save(safe=True)
         try:
@@ -343,7 +355,7 @@ class MogoTests(unittest.TestCase):
 
     def test_bad_drop(self):
         conn = connect(DBNAME)
-        foo = Foo.new()
+        foo = Foo()
         foo.bar = u"bad_drop"
         foo.save(safe=True)
         try:
@@ -354,9 +366,9 @@ class MogoTests(unittest.TestCase):
 
     def test_search_ref(self):
         conn = connect(DBNAME)
-        company = Company.new(name="Foo, Inc.")
+        company = Company(name="Foo, Inc.")
         company.save()
-        user = Person.new(name="Test", email="whatever@whatever.com")
+        user = Person(name="Test", email="whatever@whatever.com")
         user.company = company
         user.save(safe=True)
         try:
@@ -391,7 +403,7 @@ class MogoTests(unittest.TestCase):
             mod = Field(int)
 
         for i in range(100):
-            obj = OrderTest.new(up=i, down=99-i, mod=i%10)
+            obj = OrderTest(up=i, down=99-i, mod=i%10)
             obj.save()
 
         results = []
@@ -413,8 +425,8 @@ class MogoTests(unittest.TestCase):
 
     def test_simple_inheritance(self):
         """ Test simple custom model inheritance """
-        person = Person.new(name="Testing")
-        subperson = SubPerson.new(name="Testing", another_field="foobar")
+        person = Person(name="Testing")
+        subperson = SubPerson(name="Testing", another_field="foobar")
         person.save(safe=True)
         subperson.save(safe=True)
         self.assertEqual(Person.find().count(), 2)
@@ -566,11 +578,11 @@ class MogoTests(unittest.TestCase):
 
     def test_first(self):
         conn = connect(DBNAME)
-        foo = Foo.new()
+        foo = Foo()
         foo.bar = u"search"
         foo.save(safe=True)
         for x in xrange(3):
-            foo_x = Foo.new()
+            foo_x = Foo()
             foo_x.bar = u"search"
             foo_x.save(safe=True)
         result = foo.first(bar=u"search")
