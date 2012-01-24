@@ -149,6 +149,13 @@ class MogoTestModel(unittest.TestCase):
         foo.reference = child_ref
         self.assertEqual(foo["reference"].id, child_ref.id)
 
+    def test_id(self):
+        foo = Foo(_id="whoop")
+        self.assertEqual(foo.id, "whoop")
+        self.assertEqual(foo._id, "whoop")
+        self.assertEqual(foo['_id'], "whoop")
+
+
     def test_inheritance(self):
         self.assertEqual(Person._get_name(), Child._get_name())
         self.assertEqual(Person._get_name(), Infant._get_name())

@@ -141,6 +141,28 @@ class MogoTests(unittest.TestCase):
             foo.delete()
             conn.disconnect()
 
+    def test_search_or_create(self):
+        conn = connect(DBNAME)
+        items = [None,None,None]
+        try:
+            foo = items[0] = Foo.search_or_create(bar=u'howdy')
+            self.assertIsInstance(foo._id, pymongo.objectid.ObjectId)
+            foo.typeless = 4
+            foo.save()
+
+            baz = items[1] = Foo.search_or_create(bar=u'howdy', typeless=2)
+            self.assertNotEqual(foo.id,baz.id)
+            self.assertEqual(baz.typeless, 2)
+
+            qux = items[2] = Foo.search_or_create(bar=u'howdy', typeless=4)
+            self.assertEqual(foo.id,qux.id)
+            self.assertEqual(qux.typeless, 4)
+        finally:
+            for item in items:
+                if item:
+                    item.delete()
+            conn.disconnect()
+
     def test_find_one(self):
         conn = connect(DBNAME)
         foo = Foo.new()
@@ -150,6 +172,21 @@ class MogoTests(unittest.TestCase):
         try:
             self.assertTrue(foo2._get_id() == idval)
             self.assertTrue(foo2 == foo)
+        finally:
+            foo.delete()
+            conn.disconnect()
+
+    def test_bad_find_one(self):
+        conn = connect(DBNAME)
+        foo = Foo.new(bar = u'bad_find_one')
+        foo.save()
+        try:
+            item = foo.find_one()
+            self.assertTrue(item)
+            item = foo.find_one({}, timeout=False)
+            self.assertTrue(item)
+            with self.assertRaises(ValueError):
+                foo.find_one(bar = u'bad_find_one')
         finally:
             foo.delete()
             conn.disconnect()
@@ -198,6 +235,21 @@ class MogoTests(unittest.TestCase):
         finally:
             foo.delete()
             foo2.delete()
+            conn.disconnect()
+
+    def test_bad_find(self):
+        conn = connect(DBNAME)
+        foo = Foo.new(bar = u'bad_find')
+        foo.save()
+        try:
+            cursor = foo.find()
+            self.assertTrue(cursor.count())
+            cursor = foo.find({}, timeout=False)
+            self.assertTrue(cursor.count())
+            with self.assertRaises(ValueError):
+                foo.find(bar = u'bad_find')
+        finally:
+            foo.delete()
             conn.disconnect()
 
     def test_setattr_save(self):
