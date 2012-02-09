@@ -335,6 +335,12 @@ class Model(dict):
         Just a wrapper for collection.find_one(). Uses all
         the same arguments.
         """
+        if kwargs and not args:
+            # If you get this exception you should probably be calling first,
+            # not find_one. If you really want find_one, pass an empty dict:
+            # Rule.find_one({}, timeout=False)
+            raise ValueError(
+                'find_one() requires a query when called with keyword arguments')
         coll = cls._get_collection()
         result = coll.find_one(*args, **kwargs)
         if result:
@@ -347,6 +353,12 @@ class Model(dict):
         A wrapper for the pymongo cursor. Uses all the
         same arguments.
         """
+        if kwargs and not args:
+            # If you get this exception you should probably be calling search,
+            # not find. If you really want to call find, pass an empty dict:
+            # Rule.find({}, timeout=False)
+            raise ValueError(
+                'find() requires a query when called with keyword arguments')
         return Cursor(cls, *args, **kwargs)
 
     @classmethod
@@ -375,6 +387,14 @@ class Model(dict):
 
             query[key] = value
         return cls.find(query)
+
+    @classmethod
+    def search_or_create(cls, **kwargs):
+        "search for an instance that matches kwargs or make one with __init__"
+        obj = cls.search( **kwargs ).first()
+        if obj:
+            return obj
+        return cls.create( **kwargs )
 
     @classmethod
     def first(cls, **kwargs):
