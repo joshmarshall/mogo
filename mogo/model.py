@@ -170,11 +170,7 @@ class Model(dict):
         super(Model, self).__init__()
         is_new_instance = self._id_field not in kwargs
         for field, value in kwargs.iteritems():
-            private_field = field.startswith("_")
-            if private_field:
-                # Setting it in the dict, but leaving it alone
-                self[field] = value
-            elif is_new_instance:
+            if is_new_instance:
                 if field in self._fields.values():
                     # Running validation, if the field exists
                     setattr(self, field, value)
@@ -207,8 +203,6 @@ class Model(dict):
         """ (Re)update the list of fields """
         cls.__fields = {}
         for attr_key in dir(cls):
-            if attr_key.startswith('_'):
-                continue
             attr = getattr(cls, attr_key)
             if not isinstance(attr, Field):
                 continue

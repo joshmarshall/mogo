@@ -22,7 +22,7 @@ class Foo(Model):
     callback = Field(get_callback=lambda x, y: "foo",
                      set_callback=lambda x, y: "bar")
     reference = ReferenceField(Ref)
-    _ignore_me = Field()
+    _private_field = Field()
 
 
 class Bar(Model):
@@ -70,7 +70,7 @@ class MogoTestModel(unittest.TestCase):
         self.assertTrue("callback" in foo._fields.values())
         self.assertTrue("reference" in foo._fields.values())
         self.assertTrue("default" in foo._fields.values())
-        self.assertFalse("_ignore_me" in foo._fields.values())
+        self.assertTrue("_private_field" in foo._fields.values())
 
     def test_model_create_fields_init(self):
         """ Test that the model creates fields that don't exist """
