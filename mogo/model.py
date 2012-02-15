@@ -190,7 +190,10 @@ class Model(dict):
             self._fields[attr.id] = field_name
 
             # set the default
-            if attr.default is not None and not self.has_key(field_name):
+            # Code smell here -- we should be telling the field to do
+            # this behavior rather than introspecting the fields attributes.
+            if hasattr(attr, "default") and attr.default is not None \
+                    and not self.has_key(field_name):
                 self[field_name] = attr._get_default()
 
     @property

@@ -1,5 +1,6 @@
 """ The basic field attributes. """
 
+import warnings
 from pymongo.dbref import DBRef
 
 class EmptyRequiredField(Exception):
@@ -12,14 +13,13 @@ class Field(object):
     etc. but for right now it's for subclassing and glorified
     documentation.
     """
-
-    default = None
     value_type = None
 
     def __init__(self, value_type=None, **kwargs):
         self.value_type = value_type
         self.required = kwargs.get("required", False) is True
-        self.default = kwargs.get("default", None)
+        if "default" in kwargs:
+            self.default = kwargs["default"]
         set_callback = getattr(self, "_set_callback", None)
         get_callback = getattr(self, "_get_callback", None)
         self._set_callback = kwargs.get("set_callback", set_callback)
@@ -44,23 +44,35 @@ class Field(object):
     def _get_value(self, instance):
         """ Retrieve the value from the instance """
         field_name = self._get_field_name(instance)
-        if not instance.has_key(field_name):
+        value = None
+        if not field_name in instance:
             if self.required:
                 raise EmptyRequiredField("'%s' is required but is empty."
                                          % field_name)
             else:
-                instance[field_name] = self._get_default()
-        value = instance[field_name]
+                value = self._get_default()
+                if hasattr(self, "default"):
+                    # setting the default value on the instance
+                    instance[field_name] = value
+        else:
+            # value already set on the dictionary instance
+            value = instance[field_name]
         if self._get_callback:
             value = self._get_callback(instance, value)
         return value
 
     def _get_default(self):
         """ Retrieve the default value and return it """
-        if callable(self.default):
-            return self.default()
+        if hasattr(self, "default"):
+            if callable(self.default):
+                return self.default()
+            else:
+                return self.default
         else:
-            return self.default
+            warnings.warn("Field has no value AND no default value -- "
+                "in a future release, this will raise an exception.",
+                DeprecationWarning)
+            return None
 
     def _check_value_type(self, value):
         """ Verifies that a value is the proper type """

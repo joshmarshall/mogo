@@ -4,7 +4,9 @@ in mogo Fields.
 """
 
 import unittest
+import warnings
 from mogo import Field, ReferenceField, connect, Model, EnumField
+from mogo.field import EmptyRequiredField
 
 class Base(object):
     pass
@@ -66,6 +68,10 @@ class MogoFieldTests(unittest.TestCase):
         mock = MockModel(reference=base)
         mock = MockModel(reference=sub)
 
+        empty_model = MockModel()
+        # testing that the required field is, you know, required.
+        self.assertRaises(EmptyRequiredField, getattr, empty_model, "required")
+
     def test_change_field_name(self):
         """It should allow an override of a field's name."""
         class MockModel(Model):
@@ -81,8 +87,7 @@ class MogoFieldTests(unittest.TestCase):
         # Access by friendly name.
         self.assertEqual(u"lorem ipsum", model.abbreviated)
         # No access by field_name.
-        with self.assertRaises(AttributeError):
-            model.abrv
+        self.assertRaises(AttributeError, getattr, model, "abrv")
 
         # Test save.
         model.save(safe=True)
@@ -135,3 +140,28 @@ class MogoFieldTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             EnumModel1(field="nottheclassname")
 
+    def test_default_field(self):
+        """ Test that the default behavior works like you'd expect. """
+        class TestDefaultModel(Model):
+            field = Field() # i.e. no default value
+
+        entry = TestDefaultModel()
+        self.assertFalse("field" in entry)
+        # Will eventually raise an Exception -- using deprecation warning for
+        # the time being.
+        with warnings.catch_warnings(record=True) as warning:
+            warnings.simplefilter("always")
+            entry.field
+            self.assertEqual(1, len(warning))
+
+        self.assertEqual(None, entry.field)
+        self.assertFalse("field" in entry)
+
+        class TestDefaultModel2(Model):
+            field = Field(default=None)
+
+        entry2 = TestDefaultModel2()
+        self.assertFalse("field" in entry2)
+        self.assertEqual(None, entry2.field)
+        self.assertTrue("field" in entry2)
+        self.assertEqual(None, entry2["field"])
