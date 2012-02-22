@@ -5,7 +5,7 @@ in mogo Fields.
 
 import unittest
 import warnings
-from mogo import Field, ReferenceField, connect, Model, EnumField
+from mogo import Field, ReferenceField, connect, Model, EnumField, FloatField
 from mogo.field import EmptyRequiredField
 
 class Base(object):
@@ -139,6 +139,24 @@ class MogoFieldTests(unittest.TestCase):
         EnumModel2(field="EnumModel2")
         with self.assertRaises(ValueError):
             EnumModel1(field="nottheclassname")
+
+    def test_float_field(self):
+        """ Test the float field """
+        class FloatModel(Model):
+            boring = FloatField()
+            seven = FloatField(default=7)
+            required = FloatField(required=True)
+
+        instance = FloatModel(required=2.5)
+        self.assertEqual(instance.required, 2.5)
+        self.assertEqual(instance.seven, 7)
+        self.assertEqual(instance.boring, None)
+
+        with self.assertRaises(ValueError):
+            instance = FloatModel(required="123a")
+
+        instance = FloatModel(required=1)
+        self.assertEqual(instance.required, 1)
 
     def test_default_field(self):
         """ Test that the default behavior works like you'd expect. """

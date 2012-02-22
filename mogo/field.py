@@ -124,6 +124,14 @@ class ConstantField(Field):
         return value
 
 
+class FloatField(Field):
+    def _set_callback(self, instance, value):
+        """ Checks that value can become a float or raises ValueError. """
+        if value is None:
+            return value
+        return float(value)
+
+
 class EnumField(Field):
     """ Only accepts values from a set / list of values.
     The first argument should be an iterable with acceptable values, or
