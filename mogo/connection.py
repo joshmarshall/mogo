@@ -2,6 +2,7 @@
 
 from pymongo import Connection as PyConnection
 from pymongo.errors import ConnectionFailure
+import urlparse
 
 class Connection(object):
     """
@@ -23,11 +24,26 @@ class Connection(object):
         return cls._instance
 
     @classmethod
-    def connect(cls, database, *args, **kwargs):
+    def connect(cls, database=None, *args, **kwargs):
         """
         Wraps a pymongo connection.
         TODO: Allow some of the URI stuff.
         """
+        if "uri" in kwargs:
+            uri = kwargs.pop("uri")
+            parsed_uri = urlparse.urlparse(uri)
+            # allows overriding db name
+            database = database or parsed_uri.path.replace("/", "")
+            new_uri_parts = [p for p in parsed_uri]
+            if len(new_uri_parts) > 2:
+                # this is...hacky -- would love a better way to
+                # augment the urlparse results to ensure that
+                # Mogo controls the dbname
+                new_uri_parts[2] = "/"
+            parsed_uri = tuple(new_uri_parts)
+            kwargs["host"] = urlparse.urlunparse(parsed_uri)
+        elif not database:
+            raise TypeError("A database name or uri is required to connect.")
         conn = cls.instance()
         conn._database = database
         conn.connection = PyConnection(*args, **kwargs)
@@ -77,13 +93,13 @@ class Session(object):
         """ Close the connection """
         self.disconnect()
 
-def connect(database, *args, **kwargs):
+def connect(*args, **kwargs):
     """
     Initializes a connection and the database. It returns
     the pymongo connection object so that end_request, etc.
     can be called if necessary.
     """
-    return Connection.connect(database, *args, **kwargs)
+    return Connection.connect(*args, **kwargs)
 
 def session(database, *args, **kwargs):
     """

@@ -80,6 +80,32 @@ import mogo
 from mogo import Model, Field, connect, ReferenceField
 ```
 
+Connecting
+----------
+
+Mogo uses a single global connection, so that once you connect, you can
+just start accessing your model class methods. Connecting looks like:
+
+```python
+from mogo import connect
+
+connect("my_database") # connects to a local mongodb server with default port
+connect("foobar", host="127.0.0.1", port=28088)
+connect(uri="mongodb://user:pass@192.168.0.5/awesome") # for heroku, etc.
+```
+
+If you need to use an alternate connection for a chunk of code, without
+losing your main connection, you can use the following style:
+
+```python
+from mogo import connect, session
+
+connect("my_awesome_database")
+# do normal stuff
+with mogo.session("my_alternate_database"):
+    # do stuff with other database
+```
+
 Models
 ------
 Models are subclasses of dicts with some predefined class and instance
