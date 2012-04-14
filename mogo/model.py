@@ -309,6 +309,15 @@ class Model(dict):
     @notinstancemethod
     def remove(cls, *args, **kwargs):
         """ Just a wrapper around the collection's remove. """
+        if not args:
+            # If you get this exception you are calling remove with no
+            # arguments or with only keyword arguments, which is not 
+            # supported (and would remove all entries in the current
+            # collection if it was.) If you really want to delete
+            # everything in a collection, pass an empty dictionary like
+            # Model.remove({})
+            raise ValueError(
+                'remove() requires a query when called with keyword arguments')
         coll = cls._get_collection()
         return coll.remove(*args, **kwargs)
 
@@ -341,7 +350,7 @@ class Model(dict):
         if kwargs and not args:
             # If you get this exception you should probably be calling first,
             # not find_one. If you really want find_one, pass an empty dict:
-            # Rule.find_one({}, timeout=False)
+            # Model.find_one({}, timeout=False)
             raise ValueError(
                 'find_one() requires a query when called with keyword arguments')
         coll = cls._get_collection()
@@ -359,7 +368,7 @@ class Model(dict):
         if kwargs and not args:
             # If you get this exception you should probably be calling search,
             # not find. If you really want to call find, pass an empty dict:
-            # Rule.find({}, timeout=False)
+            # Model.find({}, timeout=False)
             raise ValueError(
                 'find() requires a query when called with keyword arguments')
         return Cursor(cls, *args, **kwargs)

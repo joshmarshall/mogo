@@ -195,6 +195,15 @@ class MogoTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             foo.find_one(bar = u'bad_find_one')
 
+    def test_bad_remove_arguments(self):
+        foo = Foo.create(bar=u"testing")
+        foo.save(safe=True)
+        with self.assertRaises(ValueError):
+            Foo.remove(bar="testing")
+        with self.assertRaises(ValueError):
+            Foo.remove()
+        self.assertEqual(Foo.count(), 1)
+
     def test_count(self):
         foo = Foo()
         foo.bar = u'count'
