@@ -4,6 +4,7 @@ from pymongo import Connection as PyConnection
 from pymongo.errors import ConnectionFailure
 import urlparse
 
+
 class Connection(object):
     """
     This just caches a pymongo connection and adds
@@ -63,6 +64,7 @@ class Connection(object):
         """ Retrieve a collection from an existing connection. """
         return self.get_database(database=database)[collection]
 
+
 class Session(object):
     """ This class just wraps a connection instance """
 
@@ -93,6 +95,7 @@ class Session(object):
         """ Close the connection """
         self.disconnect()
 
+
 def connect(*args, **kwargs):
     """
     Initializes a connection and the database. It returns
@@ -100,6 +103,7 @@ def connect(*args, **kwargs):
     can be called if necessary.
     """
     return Connection.connect(*args, **kwargs)
+
 
 def session(database, *args, **kwargs):
     """

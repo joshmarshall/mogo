@@ -3,9 +3,11 @@
 import warnings
 from pymongo.dbref import DBRef
 
+
 class EmptyRequiredField(Exception):
     """ Raised when a required field is not set on the model instance. """
     pass
+
 
 class Field(object):
     """
@@ -69,7 +71,8 @@ class Field(object):
             else:
                 return self.default
         else:
-            warnings.warn("Field has no value AND no default value -- "
+            warnings.warn(
+                "Field has no value AND no default value -- "
                 "in a future release, this will raise an exception.",
                 DeprecationWarning)
             return None
@@ -85,9 +88,8 @@ class Field(object):
     def __set__(self, instance, value):
         value_type = type(value)
         if not self._check_value_type(value):
-            raise TypeError("Invalid type %s instead of %s" %
-                (value_type, self.value_type)
-            )
+            raise TypeError("Invalid type %s instead of %s" % (
+                value_type, self.value_type))
         if self._set_callback:
             value = self._set_callback(instance, value)
         field_name = self._get_field_name(instance)
@@ -113,6 +115,7 @@ class ReferenceField(Field):
             # Should be a DBRef
             return self.model.find_one({"_id": value.id})
         return value
+
 
 class ConstantField(Field):
     """ Doesn't let you change the value after setting it. """

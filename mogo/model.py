@@ -40,6 +40,7 @@ from pymongo.objectid import ObjectId
 from mogo.decorators import notinstancemethod
 import logging
 
+
 class BiContextual(object):
     """ Probably a terrible, terrible idea. """
 
@@ -52,38 +53,11 @@ class BiContextual(object):
             return getattr(type, "_class_" + self.name)
         return getattr(obj, "_instance_" + self.name)
 
-class InvalidUpdateCall(Exception):
-    """ Raised whenever update is called on a new model """
-    pass
-
-class UnknownField(Exception):
-    """ Raised whenever an invalid field is accessed and the
-    AUTO_CREATE_FIELDS is False.
-    """
-    pass
-
-class NewModelClass(type):
-    """ Metaclass for inheriting field lists """
-
-    def __new__(cls, name, bases, attributes):
-        # Emptying fields by default
-        attributes["__fields"] = {}
-        new_model = super(NewModelClass, cls).__new__(cls, name,
-            bases, attributes)
-        new_model._update_fields() # pre-populate fields
-        return new_model
-
-    def __setattr__(cls, name, value):
-        """ """
-        super(NewModelClass, cls).__setattr__(name, value)
-        if isinstance(value, Field):
-            # Update the fields, because they have changed
-            cls._update_fields()
-
 
 class InvalidUpdateCall(Exception):
     """ Raised whenever update is called on a new model """
     pass
+
 
 class UnknownField(Exception):
     """ Raised whenever an invalid field is accessed and the
@@ -98,9 +72,10 @@ class NewModelClass(type):
     def __new__(cls, name, bases, attributes):
         # Emptying fields by default
         attributes["__fields"] = {}
-        new_model = super(NewModelClass, cls).__new__(cls, name,
-            bases, attributes)
-        new_model._update_fields() # pre-populate fields
+        new_model = super(NewModelClass, cls).__new__(
+            cls, name, bases, attributes)
+        # pre-populate fields
+        new_model._update_fields()
         if hasattr(new_model, "_child_models"):
             # Resetting any model register for PolyModels -- better way?
             new_model._child_models = {}
@@ -182,7 +157,6 @@ class Model(dict):
             else:
                 self[field] = value
 
-
         for field_name in self._fields.values():
             attr = getattr(self.__class__, field_name)
             if not isinstance(attr, Field):
@@ -193,7 +167,7 @@ class Model(dict):
             # Code smell here -- we should be telling the field to do
             # this behavior rather than introspecting the fields attributes.
             if hasattr(attr, "default") and attr.default is not None \
-                    and not self.has_key(field_name):
+                    and field_name in self:
                 self[field_name] = attr._get_default()
 
     @property
@@ -269,12 +243,13 @@ class Model(dict):
             # Field names in collection.
             field = getattr(self.__class__, key)
             field_name = field._get_field_name(self)
-            body[field_name] = self[field_name] # PyMongo value
+            # setting the body key to the pymongo value
+            body[field_name] = self[field_name]
         logging.debug("Checking fields (%s).", checks)
         self._check_required(*checks)
         coll = self._get_collection()
         logging.debug("Setting body (%s)", body)
-        return coll.update(spec, {"$set":  body}, **pass_kwargs)
+        return coll.update(spec, {"$set": body}, **pass_kwargs)
 
     update = BiContextual("update")
 
@@ -287,7 +262,7 @@ class Model(dict):
             # or are currently being set
             field = getattr(self.__class__, field_name)
             storage_name = field._get_field_name(self)
-            if not self.has_key(storage_name):
+            if storage_name not in self:
                 if field.required:
                     raise EmptyRequiredField("'%s' is required but empty"
                                              % field_name)
@@ -311,7 +286,7 @@ class Model(dict):
         """ Just a wrapper around the collection's remove. """
         if not args:
             # If you get this exception you are calling remove with no
-            # arguments or with only keyword arguments, which is not 
+            # arguments or with only keyword arguments, which is not
             # supported (and would remove all entries in the current
             # collection if it was.) If you really want to delete
             # everything in a collection, pass an empty dictionary like
@@ -339,7 +314,8 @@ class Model(dict):
         """
         return self._get_id()
 
-    _id = id # for nod
+    # for nod
+    _id = id
 
     @classmethod
     def find_one(cls, *args, **kwargs):
@@ -352,7 +328,8 @@ class Model(dict):
             # not find_one. If you really want find_one, pass an empty dict:
             # Model.find_one({}, timeout=False)
             raise ValueError(
-                'find_one() requires a query when called with keyword arguments')
+                "find_one() requires a query when called with "
+                "keyword arguments")
         coll = cls._get_collection()
         result = coll.find_one(*args, **kwargs)
         if result:
@@ -403,10 +380,10 @@ class Model(dict):
     @classmethod
     def search_or_create(cls, **kwargs):
         "search for an instance that matches kwargs or make one with __init__"
-        obj = cls.search( **kwargs ).first()
+        obj = cls.search(**kwargs).first()
         if obj:
             return obj
-        return cls.create( **kwargs )
+        return cls.create(**kwargs)
 
     @classmethod
     def first(cls, **kwargs):
@@ -472,8 +449,7 @@ class Model(dict):
         this_id = self._get_id()
         other_id = other._get_id()
         if self.__class__.__name__ == other.__class__.__name__ and \
-            this_id and other_id and \
-            this_id == other_id:
+                this_id and other_id and this_id == other_id:
             return True
         return False
 
@@ -519,7 +495,8 @@ class PolyModel(Model):
 
     def __new__(cls, **kwargs):
         """ Creates a model of the appropriate type """
-        create_class = cls # use the base model by default
+        # use the base model by default
+        create_class = cls
         key_field = getattr(cls, cls.get_child_key(), None)
         key = kwargs.get(cls.get_child_key())
         if not key and key_field:
@@ -569,4 +546,3 @@ class PolyModel(Model):
         """ Add key to search params for single result """
         spec = cls._update_search_spec(spec)
         return super(PolyModel, cls).find_one(spec, *args, **kwargs)
-

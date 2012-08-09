@@ -9,5 +9,7 @@ from mogo.connection import connect, session
 # /really/ schemaless designs.
 AUTO_CREATE_FIELDS = False
 
-__all__ = ['Model', 'PolyModel', 'Field', 'ReferenceField', "ConstantField",
-    "EnumField", 'connect', 'session', 'ASC', 'DESC', "AUTO_CREATE_FIELDS"]
+__all__ = [
+    'Model', 'PolyModel', 'Field', 'ReferenceField', "ConstantField",
+    "EnumField", 'connect', 'session', 'ASC', 'DESC', "AUTO_CREATE_FIELDS"
+]
