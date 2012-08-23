@@ -21,13 +21,19 @@ from mogo import PolyModel, Model, Field, ReferenceField, DESC, connect
 from mogo import ConstantField
 from mogo.connection import Connection
 import pymongo
-import pymongo.objectid
+
+try:
+    from pymongo.objectid import ObjectId
+except ImportError:
+    from bson.objectid import ObjectId
+
 import sys
 from datetime import datetime
 
 DBNAME = '_mogotest'
 ALTDB = "_mogotest2"
 DELETE = True
+
 
 class Foo(Model):
     bar = Field(unicode)
@@ -41,12 +47,14 @@ class Foo(Model):
 
 Foo.ref = ReferenceField(Foo)
 
+
 class FooWithNew(Model):
     bar = Field(unicode)
 
     @classmethod
     def new(cls):
         return cls(bar=u"whatever")
+
 
 class Company(Model):
     name = Field(str)
@@ -55,11 +63,13 @@ class Company(Model):
     def people(self):
         return Person.search(company=self)
 
+
 class Person(Model):
     _name = "people"
     company = ReferenceField(Company)
     name = Field(str)
     email = Field(str)
+
 
 class SubPerson(Person):
     """ Testing inheritance """
@@ -80,6 +90,7 @@ class Car(PolyModel):
         """ Example method to overwrite """
         raise NotImplementedError("Implement this in child classes")
 
+
 @Car.register("sportscar")
 class SportsCar(Car):
     """ Alternate car """
@@ -89,6 +100,7 @@ class SportsCar(Car):
     def drive(self):
         """ Overwritten """
         return True
+
 
 @Car.register
 class Convertible(SportsCar):
@@ -102,6 +114,7 @@ class Convertible(SportsCar):
         """ Opens / closes roof """
         self._top_down = not self._top_down
         return self._top_down
+
 
 class MogoTests(unittest.TestCase):
 
@@ -160,40 +173,40 @@ class MogoTests(unittest.TestCase):
         foo = Foo()
         foo.bar = u'create_delete'
         idval = foo.save(safe=True)
-        self.assertTrue(type(idval) is pymongo.objectid.ObjectId)
+        self.assertTrue(type(idval) is ObjectId)
         self.assertTrue(foo.id == idval)
 
     def test_search_or_create(self):
         foo = Foo.search_or_create(bar=u'howdy')
-        self.assertIsInstance(foo._id, pymongo.objectid.ObjectId)
+        self.assertIsInstance(foo._id, ObjectId)
         foo.typeless = 4
         foo.save()
 
         baz = Foo.search_or_create(bar=u'howdy', typeless=2)
-        self.assertNotEqual(foo.id,baz.id)
+        self.assertNotEqual(foo.id, baz.id)
         self.assertEqual(baz.typeless, 2)
 
         qux = Foo.search_or_create(bar=u'howdy', typeless=4)
-        self.assertEqual(foo.id,qux.id)
+        self.assertEqual(foo.id, qux.id)
         self.assertEqual(qux.typeless, 4)
 
     def test_find_one(self):
         foo = Foo()
         foo.bar = u'find_one'
         idval = foo.save(safe=True)
-        foo2 = Foo.find_one({u'bar':u'find_one'})
+        foo2 = Foo.find_one({u'bar': u'find_one'})
         self.assertTrue(foo2._get_id() == idval)
         self.assertTrue(foo2 == foo)
 
     def test_bad_find_one(self):
-        foo = Foo.new(bar = u'bad_find_one')
+        foo = Foo.new(bar=u'bad_find_one')
         foo.save()
         item = foo.find_one()
         self.assertTrue(item)
         item = foo.find_one({}, timeout=False)
         self.assertTrue(item)
         with self.assertRaises(ValueError):
-            foo.find_one(bar = u'bad_find_one')
+            foo.find_one(bar=u'bad_find_one')
 
     def test_bad_remove_arguments(self):
         foo = Foo.create(bar=u"testing")
@@ -216,7 +229,7 @@ class MogoTests(unittest.TestCase):
         foo.bar = u'grab'
         idval = foo.save(safe=True)
         newfoo = Foo.grab(str(idval))
-        self.assertTrue(newfoo != None)
+        self.assertTrue(newfoo is not None)
         self.assertTrue(newfoo.id == idval)
         self.assertTrue(newfoo._id == idval)
 
@@ -227,28 +240,28 @@ class MogoTests(unittest.TestCase):
         foo2 = Foo()
         foo2.bar = u'find'
         foo2.save()
-        result = Foo.find({'bar':u'find'})
+        result = Foo.find({'bar': u'find'})
         self.assertTrue(result.count() == 2)
-        f = result[0] # should be first one
+        f = result[0]  # should be first one
         self.assertTrue(type(f) is Foo)
         self.assertTrue(f.bar == u'find')
         for f in result:
             self.assertTrue(type(f) is Foo)
 
     def test_bad_find(self):
-        foo = Foo.new(bar = u'bad_find')
+        foo = Foo.new(bar=u'bad_find')
         foo.save(safe=True)
         cursor = foo.find()
         self.assertTrue(cursor.count())
         cursor = foo.find({}, timeout=False)
         self.assertTrue(cursor.count())
         with self.assertRaises(ValueError):
-            foo.find(bar = u'bad_find')
+            foo.find(bar=u'bad_find')
 
     def test_setattr_save(self):
         foo = Foo(bar=u"baz")
         foo.save(safe=True)
-        self.assertTrue(Foo.grab(foo.id) != None)
+        self.assertTrue(Foo.grab(foo.id) is not None)
         setattr(foo, "bar", u"quz")
         self.assertEqual(foo.bar, u"quz")
         self.assertEqual(getattr(foo, "bar"), "quz")
@@ -260,7 +273,7 @@ class MogoTests(unittest.TestCase):
         foo = Foo()
         foo.bar = u'update'
         foo.save(safe=True)
-        result = Foo.find_one({'bar':u'update'})
+        result = Foo.find_one({'bar': u'update'})
         result["hidden"] = True
         #result.bar = u"new update"
         setattr(result, "bar", u"new update")
@@ -273,11 +286,11 @@ class MogoTests(unittest.TestCase):
         self.assertTrue(result2.bar == u'new update')
         self.assertTrue(result.bar == u'new update')
 
-
     def test_flexible_fields(self):
         """ Test that anything can be passed in """
         try:
             mogo.AUTO_CREATE_FIELDS = True
+
             class Flexible(Model):
                 pass
             instance = Flexible(foo="bar", age=5)
@@ -295,14 +308,13 @@ class MogoTests(unittest.TestCase):
         finally:
             mogo.AUTO_CREATE_FIELDS = False
 
-
     def test_class_update(self):
         class Mod(Model):
             val = Field(int)
             mod = Field(int)
 
         for i in range(100):
-            foo = Mod(val=i, mod=i%2)
+            foo = Mod(val=i, mod=i % 2)
             foo.save(safe=True)
         Mod.update({"mod": 1}, {"$set": {"mod": 0}}, safe=True)
         self.assertEquals(Mod.search(mod=0).count(), 51)
@@ -315,7 +327,7 @@ class MogoTests(unittest.TestCase):
             mod = Field(int)
 
         for i in range(100):
-            foo = Mod(val=i, mod=i%2)
+            foo = Mod(val=i, mod=i % 2)
             foo.save(safe=True)
         foo = Mod.find_one({"mod": 1})
         self.assertRaises(TypeError, foo.update, mod=u"testing", safe=True)
@@ -355,7 +367,6 @@ class MogoTests(unittest.TestCase):
         result = Bar.search(field="test").first()
         self.assertEqual(result.id, result_id)
 
-
     def test_bad_remove(self):
         foo = Foo()
         foo.bar = u"bad_remove"
@@ -381,14 +392,15 @@ class MogoTests(unittest.TestCase):
         for i in range(100):
             obj = {"alt": i % 2, "count": i}
             db.counter.save(obj, safe=True)
+
         class Counter(Model):
             pass
 
         result = Counter.group(
-            key = { 'alt': 1 },
-            condition = { 'alt': 0 },
-            reduce = 'function (obj, prev) { prev.count += obj.count; }',
-            initial = {'count': 0 }
+            key={'alt': 1},
+            condition={'alt': 0},
+            reduce='function (obj, prev) { prev.count += obj.count; }',
+            initial={'count': 0}
         )
         self.assertEqual(result[0]['count'], 2450)
 
@@ -400,7 +412,7 @@ class MogoTests(unittest.TestCase):
             mod = Field(int)
 
         for i in range(100):
-            obj = OrderTest(up=i, down=99-i, mod=i%10)
+            obj = OrderTest(up=i, down=99 - i, mod=i % 10)
             obj.save()
 
         results = []
@@ -455,7 +467,7 @@ class MogoTests(unittest.TestCase):
         self.assertEqual(sportscar.doors, 2)
         self.assertEqual(sportscar.type, "sportscar")
         self.assertEqual(Car.find().count(), 2)
-        sportscar2 = Car.find({"doors":2}).first()
+        sportscar2 = Car.find({"doors": 2}).first()
         self.assertTrue(isinstance(sportscar2, SportsCar))
         self.assertTrue(sportscar2.drive())
         convertible = Car(type=u"convertible")
@@ -530,6 +542,7 @@ class MogoTests(unittest.TestCase):
         model.constant = 5
         self.assertEqual(5, model.constant)
         # but this is not allowed
+
         def set_constant():
             model.constant = 10
 
@@ -555,8 +568,8 @@ class MogoTests(unittest.TestCase):
         class CustomModel(Model):
             custom1 = Field(get_callback=custom_get, set_callback=custom_set)
             custom2 = CustomField()
-            custom3 = CustomField(get_callback=custom_get,
-                set_callback=custom_set)
+            custom3 = CustomField(
+                get_callback=custom_get, set_callback=custom_set)
 
         custom_model = CustomModel()
         self.assertEqual(1, custom_model.custom1)

@@ -9,8 +9,10 @@ import unittest
 class MockCollection(object):
     pass
 
+
 class Ref(Model):
     pass
+
 
 class Foo(Model):
 
@@ -29,8 +31,10 @@ class Bar(Model):
 
     uid = Field(unicode)
 
+
 class ChildRef(Ref):
     pass
+
 
 class Person(PolyModel):
 
@@ -44,9 +48,11 @@ class Person(PolyModel):
         """ Default method """
         return True
 
+
 @Person.register
 class Child(Person):
     role = Field(unicode, default=u"child")
+
 
 @Person.register(name="infant")
 class Infant(Person):
@@ -59,6 +65,7 @@ class Infant(Person):
     def walk(self):
         """ Overwriting a method """
         return False
+
 
 class MogoTestModel(unittest.TestCase):
 
@@ -83,7 +90,7 @@ class MogoTestModel(unittest.TestCase):
             self.assertEqual(schemaless.foo, "bar")
             self.assertTrue("foo" in schemaless.copy())
             foo_field = getattr(Testing, "foo")
-            self.assertTrue(foo_field != None)
+            self.assertTrue(foo_field is not None)
             self.assertTrue(id(foo_field) in schemaless._fields)
         finally:
             mogo.AUTO_CREATE_FIELDS = False
@@ -92,8 +99,8 @@ class MogoTestModel(unittest.TestCase):
         """ Tests the ability to add a field. """
         class Testing(Model):
             pass
-        Testing.add_field("foo", Field(unicode,
-            set_callback=lambda x, y: u"bar"))
+        Testing.add_field(
+            "foo", Field(unicode, set_callback=lambda x, y: u"bar"))
         self.assertTrue(isinstance(Testing.foo, Field))
         testing = Testing(foo=u"whatever")
         self.assertEqual(testing["foo"], u"bar")
@@ -129,7 +136,7 @@ class MogoTestModel(unittest.TestCase):
 
     def test_reference_subclass(self):
         foo = Foo()
-        child_ref = ChildRef(_id="testing") # hardcoding id
+        child_ref = ChildRef(_id="testing")  # hardcoding id
         foo.reference = child_ref
         self.assertEqual(foo["reference"].id, child_ref.id)
 
@@ -138,7 +145,6 @@ class MogoTestModel(unittest.TestCase):
         self.assertEqual(foo.id, "whoop")
         self.assertEqual(foo._id, "whoop")
         self.assertEqual(foo['_id'], "whoop")
-
 
     def test_inheritance(self):
         self.assertEqual(Person._get_name(), Child._get_name())
