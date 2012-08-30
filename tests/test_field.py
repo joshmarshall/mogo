@@ -4,12 +4,13 @@ in mogo Fields.
 """
 
 import unittest
-import warnings
 from mogo import Field, ReferenceField, connect, Model, EnumField
 from mogo.field import EmptyRequiredField
 
+
 class Base(object):
     pass
+
 
 class Sub(Base):
     pass
@@ -79,8 +80,8 @@ class MogoFieldTests(unittest.TestCase):
             long_name = Field(unicode, field_name="ln", required=True)
             regular = Field(unicode, required=True)
 
-        model = MockModel(abbreviated=u"lorem ipsum",
-            long_name=u"malarky", regular=u"meh.")
+        model = MockModel(
+            abbreviated=u"lorem ipsum", long_name=u"malarky", regular=u"meh.")
 
         # Check the model's dictionary.
         self.assertTrue("abrv" in model)
@@ -143,16 +144,10 @@ class MogoFieldTests(unittest.TestCase):
     def test_default_field(self):
         """ Test that the default behavior works like you'd expect. """
         class TestDefaultModel(Model):
-            field = Field() # i.e. no default value
+            field = Field()  # i.e. no default value
 
         entry = TestDefaultModel()
         self.assertFalse("field" in entry)
-        # Will eventually raise an Exception -- using deprecation warning for
-        # the time being.
-        with warnings.catch_warnings(record=True) as warning:
-            warnings.simplefilter("always")
-            entry.field
-            self.assertEqual(1, len(warning))
 
         self.assertEqual(None, entry.field)
         self.assertFalse("field" in entry)
@@ -161,7 +156,10 @@ class MogoFieldTests(unittest.TestCase):
             field = Field(default=None)
 
         entry2 = TestDefaultModel2()
-        self.assertFalse("field" in entry2)
-        self.assertEqual(None, entry2.field)
         self.assertTrue("field" in entry2)
+        self.assertEqual(None, entry2.field)
         self.assertEqual(None, entry2["field"])
+
+        entry3 = TestDefaultModel2(field="foobar")
+        self.assertEqual("foobar", entry3.field)
+        self.assertEqual("foobar", entry3["field"])
