@@ -1,7 +1,13 @@
 """ The basic field attributes. """
 
 import warnings
-from pymongo.dbref import DBRef
+
+# PyMongo moving libraries around -- eventually this can
+# go away.
+try:
+    from pymongo.dbref import DBRef
+except ImportError:
+    from bson.dbref import DBRef
 
 
 class EmptyRequiredField(Exception):
@@ -49,33 +55,28 @@ class Field(object):
         value = None
         if not field_name in instance:
             if self.required:
-                raise EmptyRequiredField("'%s' is required but is empty."
-                                         % field_name)
-            else:
-                value = self._get_default()
-                if hasattr(self, "default"):
-                    # setting the default value on the instance
-                    instance[field_name] = value
-        else:
-            # value already set on the dictionary instance
-            value = instance[field_name]
+                raise EmptyRequiredField(
+                    "'%s' is required but is empty." % field_name)
+            self._set_default(instance, field_name)
+        value = instance.get(field_name)
         if self._get_callback:
             value = self._get_callback(instance, value)
         return value
 
-    def _get_default(self):
-        """ Retrieve the default value and return it """
+    def _set_default(self, model, field):
+        if field in model:
+            # value already set, not overwriting it.
+            return
         if hasattr(self, "default"):
-            if callable(self.default):
-                return self.default()
+            if not callable(self.default):
+                warnings.warn(
+                    "Defaults that are not functions (or callable) "
+                    "are deprecated, and will be removed in a future version.",
+                    DeprecationWarning)
+                default_value = self.default
             else:
-                return self.default
-        else:
-            warnings.warn(
-                "Field has no value AND no default value -- "
-                "in a future release, this will raise an exception.",
-                DeprecationWarning)
-            return None
+                default_value = self.default()
+            setattr(model, field, default_value)
 
     def _check_value_type(self, value):
         """ Verifies that a value is the proper type """

@@ -35,8 +35,17 @@ import mogo
 from mogo.connection import Connection
 from mogo.cursor import Cursor
 from mogo.field import Field, EmptyRequiredField
-from pymongo.dbref import DBRef
-from pymongo.objectid import ObjectId
+
+# PyMongo change -- eventually this can go away,
+# and just be bson.dbref / bson.objectid
+try:
+    from pymongo.dbref import DBRef
+    from pymongo.objectid import ObjectId
+except ImportError:
+    from bson.dbref import DBRef
+    from bson.objectid import ObjectId
+
+
 from mogo.decorators import notinstancemethod
 import logging
 
@@ -159,16 +168,10 @@ class Model(dict):
 
         for field_name in self._fields.values():
             attr = getattr(self.__class__, field_name)
-            if not isinstance(attr, Field):
-                continue
             self._fields[attr.id] = field_name
 
             # set the default
-            # Code smell here -- we should be telling the field to do
-            # this behavior rather than introspecting the fields attributes.
-            if hasattr(attr, "default") and attr.default is not None \
-                    and field_name in self:
-                self[field_name] = attr._get_default()
+            attr._set_default(self, field_name)
 
     @property
     def _fields(self):
