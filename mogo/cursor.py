@@ -15,10 +15,12 @@ DESC = DESCENDING
 class Cursor(PyCursor):
     """ A simple wrapper around pymongo's Cursor class. """
 
-    def __init__(self, model, *args, **kwargs):
+    def __init__(self, model, spec=None, *args, **kwargs):
         self._order_entries = []
+        self._query = spec
         self._model = model
-        PyCursor.__init__(self, model._get_collection(), *args, **kwargs)
+        PyCursor.__init__(
+            self, model._get_collection(), spec, *args, **kwargs)
 
     def next(self):
         value = PyCursor.next(self)
@@ -46,3 +48,16 @@ class Cursor(PyCursor):
             # pymongo, so this SHOULD be safe
             self.sort(self._order_entries)
         return self
+
+    def update(self, modifier):
+        if self._query is None:
+            raise ValueError(
+                "Cannot update on a cursor without a query. If you "
+                "actually want to modify all values on a model, pass "
+                "in an explicit {} to find().")
+        self._model.update(self._query, modifier, multi=True)
+        return self
+
+    def change(self, **kwargs):
+        modifier = {"$set": kwargs}
+        return self.update(modifier)

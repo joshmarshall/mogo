@@ -209,6 +209,17 @@ db.hero.update({"_id": hero["_id"]},
     {"$set": {"powers": ["telepathy", "mystic weirdness"]}})
 ```
 
+(BETA) If you call it from a cursor, it will use the query you
+originally provided to the cursor. This does not currently respect
+additional filtering like `where()`, does not check types when
+setting values, and has not been exhaustively tested. (So beware.)
+
+```python
+hero_cursor = Hero.find({"name": {"$in": ["River", "Simon"]}})
+hero_cursor.update({"$push": {"powers": "siblingness"}})
+# or, for you keyword-liking people...
+hero_cursor.change(powers="siblingness")
+
 Fields
 ------
 Using a Field is (usually) necessary for a number of reasons. While

@@ -337,6 +337,25 @@ class MogoTests(unittest.TestCase):
         self.assertEquals(foo2.mod, 5)
         self.assertEquals(Mod.search(mod=5).count(), 1)
 
+    def test_cursor_update(self):
+        class Atomic(Model):
+            value = Field(int)
+            key = Field(unicode, default=u"foo")
+            unchanged = Field(default="original")
+
+        for i in range(10):
+            atomic = Atomic(value=i)
+            if i % 2:
+                atomic.key = u"bar"
+            atomic.save(safe=True)
+
+        Atomic.find({"key": "bar"}).update({"$inc": {"value": 100}})
+        Atomic.find({"key": "foo"}).change(key="wut")
+
+        self.assertEqual(5, Atomic.find({"key": "wut"}).count())
+        self.assertEqual(5, Atomic.find({"value": {"$gt": 100}}).count())
+        self.assertEqual(10, Atomic.find({"unchanged": "original"}).count())
+
     def test_ref(self):
         foo = Foo()
         foo.bar = u"ref"
