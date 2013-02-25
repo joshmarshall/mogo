@@ -16,6 +16,7 @@ class Connection(object):
     _host = None
     _port = None
     _database = None
+    _db_cache = {}
 
     @classmethod
     def instance(cls):
@@ -58,7 +59,11 @@ class Connection(object):
             if not self._database:
                 raise Exception('No database submitted')
             database = self._database
-        return self.connection[database]
+
+        if not database in self._db_cache:
+            self._db_cache[database] = self.connection[database]
+
+        return self._db_cache[database]
 
     def get_collection(self, collection, database=None):
         """ Retrieve a collection from an existing connection. """
