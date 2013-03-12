@@ -3,7 +3,7 @@ Mogo
 This library is a simple "schema-less" object wrapper around the
 pymongo library (http://github.com/mongodb/mongo-python-driver). Mogo
 simply provides some simple helpers to use PyMongo in an MVC 
-environment (thins like dot-attribute syntax, model methods, 
+environment (things like dot-attribute syntax, model methods, 
 reference fields, etc.)
 
 While pymongo is very simple to use and really flexible, it doesn't
@@ -32,7 +32,7 @@ Installation
 You can install it from PyPI with:
 
 ```sh
-pip mogo
+pip install mogo
 ```
 
 or if you're old school:
@@ -219,6 +219,7 @@ hero_cursor = Hero.find({"name": {"$in": ["River", "Simon"]}})
 hero_cursor.update({"$push": {"powers": "siblingness"}})
 # or, for you keyword-liking people...
 hero_cursor.change(powers="siblingness")
+```
 
 Fields
 ------
