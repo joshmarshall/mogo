@@ -447,11 +447,9 @@ class Model(dict):
         This method compares two objects names and id values.
         If they match, they are "equal".
         """
-        if not isinstance(other, Model):
-            return False
         this_id = self._get_id()
         other_id = other._get_id()
-        if self.__class__.__name__ == other.__class__.__name__ and \
+        if self._get_name() == other._get_name() and \
                 this_id and other_id and this_id == other_id:
             return True
         return False
