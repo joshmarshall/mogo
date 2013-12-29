@@ -20,17 +20,17 @@ class Cursor(PyCursor):
         self._query = spec
         self._model = model
         PyCursor.__init__(
-            self, model._get_collection(), spec, *args, **kwargs)
+            self, model.get_collection(), spec, *args, **kwargs)
 
     def next(self):
         value = PyCursor.next(self)
-        return self._model(**value)
+        return self._model.from_database(**value)
 
     def __getitem__(self, *args, **kwargs):
         value = PyCursor.__getitem__(self, *args, **kwargs)
         if type(value) == self.__class__:
             return value
-        return self._model(**value)
+        return self._model.from_database(**value)
 
     def first(self):
         if self.count() == 0:

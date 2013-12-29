@@ -1,6 +1,7 @@
 """ This is the mogo syntactic sugar library for MongoDB. """
 
-from mogo.model import Model, PolyModel
+from mogo.model import Model
+from mogo.polymodel import PolyModel
 from mogo.field import Field, ReferenceField, ConstantField, EnumField
 from mogo.cursor import ASC, DESC
 from mogo.connection import connect, session

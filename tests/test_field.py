@@ -24,7 +24,8 @@ class MogoFieldTests(unittest.TestCase):
 
     def tearDown(self):
         super(MogoFieldTests, self).tearDown()
-        self._mongo_connection.drop_database("__test_change_field_name")
+        self._mongo_connection.get_client().drop_database(
+            "__test_change_field_name")
         self._mongo_connection.disconnect()
 
     def test_field(self):
@@ -156,6 +157,7 @@ class MogoFieldTests(unittest.TestCase):
             field = Field(default=None)
 
         entry2 = TestDefaultModel2()
+        print entry2.copy()
         self.assertTrue("field" in entry2)
         self.assertEqual(None, entry2.field)
         self.assertEqual(None, entry2["field"])

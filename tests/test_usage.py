@@ -1,27 +1,15 @@
 """
-A variety of tests to cover the majority of the functionality
-in mogo. I'd really like to get this to 100% code coverage...
-
-NOTES:
-I use safe=True for most of the save operations because sometimes
-it was too quick and a find or search operation performed immediately
-afterwards would not return the new object.
-
-You need to have mongod running on the local machine for this
-to run. Will probably add config options later for testing
-remote machines.
-
 If for some reason you have a database named "_mogotest", you will
 probably want to change DBNAME. :)
 """
 
 import unittest
 import mogo
-from mogo import PolyModel, Model, Field, ReferenceField, DESC, connect
+from mogo import PolyModel, Model, Field, ReferenceField, DESC
 from mogo import ConstantField
-from mogo.connection import Connection
+import mogo.connection
+import mogo.exceptions
 from mogo.model import UnknownField
-import pymongo
 
 try:
     from pymongo.objectid import ObjectId
@@ -49,12 +37,15 @@ class Foo(Model):
 Foo.ref = ReferenceField(Foo)
 
 
-class FooWithNew(Model):
-    bar = Field(unicode)
+class Strict(Model):
 
-    @classmethod
-    def new(cls):
-        return cls(bar=u"whatever")
+    name = Field(unicode, required=True)
+    age = Field(int, coerce_callback=int, required=True)
+    verified = Field(bool, required=True, default=False)
+
+    def __init__(self, name, age):
+        # restricting construction fields
+        return super(Strict, self).__init__(name=name, age=age)
 
 
 class Company(Model):
@@ -120,27 +111,27 @@ class Convertible(SportsCar):
 class MogoTests(unittest.TestCase):
 
     def setUp(self):
-        self._conn = connect(DBNAME)
+        self._connection = mogo.connection.connect(DBNAME)
 
-    def test_connect(self):
-        self.assertRaises(TypeError, connect)
-        self.assertTrue(isinstance(self._conn, pymongo.Connection))
-        connection = Connection.instance()
-        self.assertTrue(connection._database == DBNAME)
-        self._conn.disconnect()
+    def test_connect_default_uri(self):
+        connection = mogo.connection.instance()
+        self.assertEqual(self._connection, connection)
+        database = self._connection.get_database()
+        self.assertEqual(DBNAME, database.name)
 
     def test_uri_connect(self):
-        conn = connect(uri="mongodb://localhost/%s" % DBNAME)
-        self.assertTrue(isinstance(conn, pymongo.Connection))
-        connection = Connection.instance()
-        self.assertEqual(connection._database, DBNAME)
-        conn.disconnect()
-        # overriding the database name
-        conn = connect(DBNAME, uri="mongodb://localhost/foobar")
-        self.assertTrue(isinstance(conn, pymongo.Connection))
-        connection = Connection.instance()
-        self.assertEqual(connection._database, DBNAME)
-        conn.disconnect()
+        connection1 = mogo.connection.connect(
+            DBNAME, "mongodb://localhost/%s" % DBNAME)
+        connection2 = mogo.connection.instance()
+        self.assertEqual(connection1, connection2)
+        # should overwrite instance
+        self.assertNotEqual(self._connection, connection1)
+
+        with self.assertRaises(mogo.exceptions.DatabaseNameMismatch):
+            mogo.connection.connect(DBNAME, "mongodb://localhost/foobar")
+
+        connection1.disconnect()
+        connection2.disconnect()
 
     def test_model(self):
         foo = Foo(bar=u'cheese')
@@ -155,10 +146,6 @@ class MogoTests(unittest.TestCase):
         foo = Foo.create(bar=u"cheese")
         self.assertEqual(foo.bar, "cheese")
         self.assertEqual(Foo.find().count(), 1)
-        # testing with a classmethod "new" defined.
-        foo = FooWithNew.create()
-        self.assertIsNotNone(foo._id)
-        self.assertEqual(foo.bar, u"whatever")
 
     def test_save_defaults(self):
         """
@@ -200,8 +187,7 @@ class MogoTests(unittest.TestCase):
         self.assertTrue(foo2 == foo)
 
     def test_bad_find_one(self):
-        foo = Foo.new(bar=u'bad_find_one')
-        foo.save()
+        foo = Foo.create(bar=u'bad_find_one')
         item = foo.find_one()
         self.assertTrue(item)
         item = foo.find_one({}, timeout=False)
@@ -250,8 +236,7 @@ class MogoTests(unittest.TestCase):
             self.assertTrue(type(f) is Foo)
 
     def test_bad_find(self):
-        foo = Foo.new(bar=u'bad_find')
-        foo.save(safe=True)
+        foo = Foo.create(bar=u'bad_find')
         cursor = foo.find()
         self.assertTrue(cursor.count())
         cursor = foo.find({}, timeout=False)
@@ -404,7 +389,8 @@ class MogoTests(unittest.TestCase):
         """ Testing the bug where fields are not populated before search. """
         class Bar(Model):
             field = Field()
-        result_id = self._conn[DBNAME]["bar"].save({"field": "test"})
+        result_id = self._connection.get_client()[DBNAME]["bar"].save(
+            {"field": "test"})
         result = Bar.search(field="test").first()
         self.assertEqual(result.id, result_id)
 
@@ -429,7 +415,7 @@ class MogoTests(unittest.TestCase):
         self.assertTrue(company.people.count() == 1)
 
     def test_group(self):
-        db = self._conn[DBNAME]
+        db = self._connection.get_client()[DBNAME]
         for i in range(100):
             obj = {"alt": i % 2, "count": i}
             db.counter.save(obj, safe=True)
@@ -483,7 +469,7 @@ class MogoTests(unittest.TestCase):
     def test_poly_model_inheritance(self):
         """ Test the mogo support for model inheritance """
         self.assertEqual(Car._get_name(), SportsCar._get_name())
-        self.assertEqual(Car._get_collection(), SportsCar._get_collection())
+        self.assertEqual(Car.get_collection(), SportsCar.get_collection())
         car = Car()
         with self.assertRaises(NotImplementedError):
             car.drive()
@@ -542,11 +528,10 @@ class MogoTests(unittest.TestCase):
         foo.save(safe=True)
         self.assertEqual(Foo.find().count(), 1)
         session = mogo.session(ALTDB)
-        session.connect()
         FooWrapped = Foo.use(session)
         self.assertEqual(FooWrapped._get_name(), Foo._get_name())
         self.assertEqual(FooWrapped.find().count(), 0)
-        coll = session.connection.get_collection("foo")
+        coll = session.get_connection().get_collection("foo")
         self.assertEqual(coll.find().count(), 0)
         foo2 = FooWrapped()
         foo2.save(safe=True)
@@ -634,11 +619,17 @@ class MogoTests(unittest.TestCase):
         result = foo.first(bar=u"search")
         self.assertTrue(result == foo)
 
+    def test_construction_overwriting(self):
+        strict = Strict.create(name=u"foo", age=25)
+        other_strict = Strict.first()
+        self.assertEqual(strict, other_strict)
+        self.assertEqual(False, other_strict.verified)
+
     def tearDown(self):
         if DELETE:
-            self._conn.drop_database(DBNAME)
-            self._conn.drop_database(ALTDB)
-        self._conn.disconnect()
+            self._connection.get_client().drop_database(DBNAME)
+            self._connection.get_client().drop_database(ALTDB)
+        self._connection.disconnect()
 
 if __name__ == '__main__':
     if '--no-drop' in sys.argv:

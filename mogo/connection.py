@@ -1,112 +1,107 @@
 """ The wrapper for pymongo's connection stuff. """
 
-from pymongo import Connection as PyConnection
-from pymongo.errors import ConnectionFailure
+from pymongo import MongoClient
 import urlparse
+
+from mogo.exceptions import InvalidConnectionURI, DatabaseNameMismatch
+
+
+_DEFAULT_URI = "mongodb://localhost:27017"
 
 
 class Connection(object):
-    """
-    This just caches a pymongo connection and adds
-    a few shortcuts.
-    """
 
-    _instance = None
-    connection = None
-    _host = None
-    _port = None
-    _database = None
+    def __init__(self, database_name, database_uri):
+        parsed_database_uri = urlparse.urlparse(database_uri)
+        if parsed_database_uri.scheme != "mongodb":
+            raise InvalidConnectionURI(
+                "Mogo requires a properly-formed mongodb:// connection URI.")
 
-    @classmethod
-    def instance(cls):
-        """ Retrieves the shared connection. """
-        if not cls._instance:
-            cls._instance = Connection()
-        return cls._instance
+        uri_database_name = urlparse.urlparse(database_uri).path
+        while uri_database_name.startswith("/"):
+            uri_database_name = uri_database_name[1:]
 
-    @classmethod
-    def connect(cls, database=None, *args, **kwargs):
-        """
-        Wraps a pymongo connection.
-        TODO: Allow some of the URI stuff.
-        """
-        if "uri" in kwargs:
-            uri = kwargs.pop("uri")
-            parsed_uri = urlparse.urlparse(uri)
-            # allows overriding db name
-            database = database or parsed_uri.path.replace("/", "")
-            new_uri_parts = [p for p in parsed_uri]
-            if len(new_uri_parts) > 2:
-                # this is...hacky -- would love a better way to
-                # augment the urlparse results to ensure that
-                # Mogo controls the dbname
-                new_uri_parts[2] = "/"
-            parsed_uri = tuple(new_uri_parts)
-            kwargs["host"] = urlparse.urlunparse(parsed_uri)
-        elif not database:
-            raise TypeError("A database name or uri is required to connect.")
-        conn = cls.instance()
-        conn._database = database
-        conn.connection = PyConnection(*args, **kwargs)
-        return conn.connection
+        if uri_database_name and uri_database_name != database_name:
+            raise DatabaseNameMismatch(
+                "The database name provided via the connection URI (%s) "
+                "does not match the explicit database name provided (%s) " % (
+                    uri_database_name, database_name))
 
-    def get_database(self, database=None):
+        self._client = MongoClient(database_uri)
+        self._database_name = database_name
+
+    def get_client(self):
+        return self._client
+
+    def get_database(self):
         """ Retrieves a database from an existing connection. """
-        if not self.connection:
-            raise ConnectionFailure('No connection')
-        if not database:
-            if not self._database:
-                raise Exception('No database submitted')
-            database = self._database
-        return self.connection[database]
+        return self._client[self._database_name]
 
-    def get_collection(self, collection, database=None):
+    def get_collection(self, collection):
         """ Retrieve a collection from an existing connection. """
-        return self.get_database(database=database)[collection]
+        return self.get_database()[collection]
+
+    def disconnect(self):
+        self._client.disconnect()
 
 
 class Session(object):
     """ This class just wraps a connection instance """
 
-    def __init__(self, database, *args, **kwargs):
+    def __init__(self, database_name, database_uri):
         """ Stores a connection instance """
-        self.connection = None
-        self.database = database
-        self.args = args
-        self.kwargs = kwargs
+        self._database_name = database_name
+        self._database_uri = database_uri
+        self._connection = Connection(self._database_name, self._database_uri)
 
-    def connect(self):
-        """ Connect to MongoDB """
-        connection = Connection()
-        connection._database = self.database
-        connection.connection = PyConnection(*self.args, **self.kwargs)
-        self.connection = connection
+    def get_connection(self):
+        return self._connection
 
     def disconnect(self):
-        """ Just a wrapper for the PyConnection disconnect. """
-        self.connection.connection.disconnect()
+        return self._connection.disconnect()
 
     def __enter__(self):
         """ Open the connection """
-        self.connect()
+        global _INSTANCE
+        self._original_connection = _INSTANCE
+        _INSTANCE = self._connection
         return self
 
     def __exit__(self, type, value, traceback):
         """ Close the connection """
+        global _INSTANCE
         self.disconnect()
+        _INSTANCE = self._original_connection
 
 
-def connect(*args, **kwargs):
+_INSTANCE = None
+_DATABASE_NAME = None
+_DATABASE_URI = None
+
+
+def instance():
+    return _INSTANCE
+
+
+def connect(database_name, database_uri=_DEFAULT_URI):
     """
     Initializes a connection and the database. It returns
     the pymongo connection object so that end_request, etc.
     can be called if necessary.
     """
-    return Connection.connect(*args, **kwargs)
+    global _INSTANCE, _DATABASE_NAME, _DATABASE_URI
+    if _INSTANCE:
+        if _DATABASE_NAME == database_name and _DATABASE_URI == database_uri:
+            return _INSTANCE
+        _INSTANCE.disconnect()
+    _INSTANCE = Connection(database_name, database_uri)
+    _DATABASE_NAME = database_name
+    _DATABASE_URI = database_uri
+    return _INSTANCE
 
 
-def session(database, *args, **kwargs):
+def session(database_name, database_uri=_DEFAULT_URI):
     """
     Returns a session object to be used with the `with` statement.
     """
-    return Session(database, *args, **kwargs)
+    return Session(database_name, database_uri)
