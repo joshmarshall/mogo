@@ -162,13 +162,18 @@ mal = Hero(name="Malcom Reynolds")
 mal.save()
 ```
 
+You can also call `create()` to instantiate and save in one command:
+
+```python
+wash = Hero.create(name="Hoban Washburne")
+```
+
 `save` will always overwrite the entire entry in the database.
 This is the same behavior that PyMongo uses, and it is helpful for
 simpler list and dictionary usage:
 
 ```python
-zoe = Hero(name="Zoe", powers=["warrior woman"])
-zoe.save()
+zoe = Hero.create(name="Zoe", powers=["warrior woman"])
 zoe["powers"].append("big darn hero")
 zoe.save()
 ```
@@ -196,7 +201,7 @@ If it is called from an instance, it uses keyword arguments to set
 attributes, and then sends off a PyMongo "$set" update:
 
 ```python
-hero = Hero.find_one({"name": "River Tam"})
+hero = Hero.first(name="River Tam")
 hero.update(powers=["telepathy", "mystic weirdness"])
 # equals the following in PyMongo
 hero = db.hero.find_one({"name": "River Tam"})
@@ -270,6 +275,23 @@ value like time.time() or datetime.now(). (Thanks @nod!)
 class Ship(Model):
     name = Field(unicode, default=u"Dormunder")
 ```
+
+Finally, you can coerce values if explicitness is less your thing. :) There are two ways to accomplish this:
+
+```python
+class FloatField(Field):
+    value_type = float
+    def _coerce_callback(self, value):
+        return float(value)
+
+# or, at class definition time...
+
+class Ship(Model):
+    damage_percent = Field(float, coerce_callback=float)
+```
+
+Both of these function in the same way. The coercion will only be run if the type doesn't match, and then it will check once again. Both of these operations occur BEFORE set_callback()'s are called.
+
 
 ReferenceField
 --------------
