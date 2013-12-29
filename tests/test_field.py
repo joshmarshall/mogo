@@ -157,7 +157,6 @@ class MogoFieldTests(unittest.TestCase):
             field = Field(default=None)
 
         entry2 = TestDefaultModel2()
-        print entry2.copy()
         self.assertTrue("field" in entry2)
         self.assertEqual(None, entry2.field)
         self.assertEqual(None, entry2["field"])

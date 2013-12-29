@@ -40,7 +40,6 @@ from mogo.exceptions import InvalidUpdateCall, UnknownField, EmptyRequiredField
 from mogo.new_model_class import NewModelClass
 
 from bson.dbref import DBRef
-from bson.objectid import ObjectId
 
 from mogo.decorators import notinstancemethod
 import logging
@@ -63,7 +62,6 @@ class Model(object):
     __metaclass__ = NewModelClass
 
     _id_field = '_id'
-    _id_type = ObjectId
     _name = None
     _collection = None
     _fields = None
@@ -91,19 +89,15 @@ class Model(object):
         # compute once
         self._data = {}
         should_create_fields = self._auto_create_fields
-        is_new_instance = self._id_field not in kwargs
         for field, value in kwargs.iteritems():
-            if is_new_instance:
-                if field in self._fields.values():
-                    # Running validation, if the field exists
-                    setattr(self, field, value)
-                else:
-                    if not should_create_fields:
-                        raise UnknownField("Unknown field %s" % field)
-                    self.add_field(field, Field())
-                    setattr(self, field, value)
+            if field in self._fields.values():
+                # Running validation, if the field exists
+                setattr(self, field, value)
             else:
-                self._data[field] = value
+                if not should_create_fields:
+                    raise UnknownField("Unknown field %s" % field)
+                self.add_field(field, Field())
+                setattr(self, field, value)
 
         self._populate_defaults()
 
@@ -158,6 +152,7 @@ class Model(object):
     def _update_fields(cls):
         """ (Re)update the list of fields """
         cls._fields = {}
+
         for attr_key in dir(cls):
             attr = getattr(cls, attr_key)
             if not isinstance(attr, Field):
@@ -373,8 +368,6 @@ class Model(object):
     @classmethod
     def grab(cls, object_id):
         """ A shortcut to retrieve one object by its id. """
-        if type(object_id) != cls._id_type:
-            object_id = cls._id_type(object_id)
         return cls.find_one({cls._id_field: object_id})
 
     @classmethod
@@ -440,9 +433,6 @@ class Model(object):
     @notinstancemethod
     def make_ref(cls, idval):
         """ Generates a DBRef for a given id. """
-        if type(idval) != cls._id_type:
-            # Casting to ObjectId (or str, or whatever is configured)
-            idval = cls._id_type(idval)
         return DBRef(cls._get_name(), idval)
 
     def get_ref(self):

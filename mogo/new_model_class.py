@@ -6,7 +6,7 @@ class NewModelClass(type):
 
     def __new__(cls, name, bases, attributes):
         # Emptying fields by default
-        attributes["__fields"] = {}
+        attributes["_fields"] = {}
         new_model = super(NewModelClass, cls).__new__(
             cls, name, bases, attributes)
         # pre-populate fields

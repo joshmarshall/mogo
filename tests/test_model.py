@@ -18,6 +18,7 @@ class Foo(Model):
 
     _collection = MockCollection()
 
+    _id = Field()
     field = Field()
     required = Field(required=True)
     default = Field(default="default")
@@ -33,7 +34,8 @@ class Bar(Model):
 
 
 class ChildRef(Ref):
-    pass
+
+    _id = Field()
 
 
 class MogoTestModel(unittest.TestCase):

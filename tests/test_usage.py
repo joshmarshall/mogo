@@ -215,7 +215,7 @@ class MogoTests(unittest.TestCase):
         foo = Foo()
         foo.bar = u'grab'
         idval = foo.save(safe=True)
-        newfoo = Foo.grab(str(idval))
+        newfoo = Foo.grab(idval)
         self.assertTrue(newfoo is not None)
         self.assertTrue(newfoo.id == idval)
         self.assertTrue(newfoo._id == idval)
