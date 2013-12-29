@@ -20,6 +20,7 @@ import mogo
 from mogo import PolyModel, Model, Field, ReferenceField, DESC, connect
 from mogo import ConstantField
 from mogo.connection import Connection
+from mogo.model import UnknownField
 import pymongo
 
 try:
@@ -305,6 +306,27 @@ class MogoTests(unittest.TestCase):
             # Test that the flexible fields were set
             self.assertEqual(instance.foo, "bar")
             self.assertEqual(instance.age, 5)
+        finally:
+            mogo.AUTO_CREATE_FIELDS = False
+
+    def test_flexible_fields_model_overwrite(self):
+        """ Overwrite on a per-model basis """
+        class Flexible(Model):
+            AUTO_CREATE_FIELDS = True
+
+        instance = Flexible.create(foo="bar", age=5)
+        self.assertEqual("bar", instance.foo)
+        self.assertEqual(5, instance.age)
+
+    def test_flexible_fields_model_overwrites_global(self):
+        try:
+            mogo.AUTO_CREATE_FIELDS = True
+
+            class Flexible(Model):
+                AUTO_CREATE_FIELDS = False
+
+            with self.assertRaises(UnknownField):
+                Flexible.create(foo="bar", age=5)
         finally:
             mogo.AUTO_CREATE_FIELDS = False
 

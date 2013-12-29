@@ -152,6 +152,8 @@ class Model(dict):
     def __init__(self, **kwargs):
         """ Creates an instance of the model, without saving it. """
         super(Model, self).__init__()
+        # compute once
+        create_fields = self._auto_create_fields
         is_new_instance = self._id_field not in kwargs
         for field, value in kwargs.iteritems():
             if is_new_instance:
@@ -159,7 +161,7 @@ class Model(dict):
                     # Running validation, if the field exists
                     setattr(self, field, value)
                 else:
-                    if not mogo.AUTO_CREATE_FIELDS:
+                    if not create_fields:
                         raise UnknownField("Unknown field %s" % field)
                     self.add_field(field, Field())
                     setattr(self, field, value)
@@ -172,6 +174,12 @@ class Model(dict):
 
             # set the default
             attr._set_default(self, field_name)
+
+    @property
+    def _auto_create_fields(self):
+        if hasattr(self, "AUTO_CREATE_FIELDS"):
+            return self.AUTO_CREATE_FIELDS
+        return mogo.AUTO_CREATE_FIELDS
 
     @property
     def _fields(self):

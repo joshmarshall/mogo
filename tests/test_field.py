@@ -163,3 +163,26 @@ class MogoFieldTests(unittest.TestCase):
         entry3 = TestDefaultModel2(field="foobar")
         self.assertEqual("foobar", entry3.field)
         self.assertEqual("foobar", entry3["field"])
+
+    def test_field_coercion(self):
+
+        class FloatField(Field):
+            value_type = float
+
+            def _coerce_callback(self, value):
+                return float(value)
+
+        class TestCoerceModel(Model):
+            percent = FloatField()
+
+        model = TestCoerceModel(percent=100)
+        self.assertEqual(float, type(model["percent"]))
+
+        model = TestCoerceModel(percent=99.5)
+        self.assertEqual(float, type(model["percent"]))
+
+        class TestCoerceModel2(Model):
+            percent = Field(float, coerce_callback=lambda x: int(x))
+
+        with self.assertRaises(TypeError):
+            model = TestCoerceModel2(percent=2)

@@ -17,21 +17,25 @@ class EmptyRequiredField(Exception):
 
 class Field(object):
     """
-    This class may eventually do type-checking, default values,
-    etc. but for right now it's for subclassing and glorified
-    documentation.
+    This class is responsible for type-checking, set- and get- callbacks,
+    coercing values, and general data-y things. More simply, it is responsible
+    for storing things into mongo-friendly values and retrieving them in
+    application-friendly values.
     """
+
     value_type = None
 
     def __init__(self, value_type=None, **kwargs):
-        self.value_type = value_type
+        self.value_type = value_type or self.value_type
         self.required = kwargs.get("required", False) is True
         if "default" in kwargs:
             self.default = kwargs["default"]
         set_callback = getattr(self, "_set_callback", None)
         get_callback = getattr(self, "_get_callback", None)
+        coerce_callback = getattr(self, "_coerce_callback", None)
         self._set_callback = kwargs.get("set_callback", set_callback)
         self._get_callback = kwargs.get("get_callback", get_callback)
+        self._coerce_callback = kwargs.get("coerce_callback", coerce_callback)
         self.id = id(self)
         self._field_name = kwargs.get("field_name", None)
 
@@ -78,22 +82,28 @@ class Field(object):
                 default_value = self.default()
             setattr(model, field, default_value)
 
-    def _check_value_type(self, value):
+    def _check_value_type(self, value, field_name):
         """ Verifies that a value is the proper type """
         if value is not None and self.value_type is not None:
             valid = isinstance(value, self.value_type)
             if not valid:
-                return False
-        return True
+                value_type = type(value)
+                raise TypeError(
+                    "Invalid type %s instead of %s for field '%s'" % (
+                        value_type, self.value_type, field_name))
 
     def __set__(self, instance, value):
-        value_type = type(value)
-        if not self._check_value_type(value):
-            raise TypeError("Invalid type %s instead of %s" % (
-                value_type, self.value_type))
+        field_name = self._get_field_name(instance)
+        try:
+            self._check_value_type(value, field_name)
+        except TypeError:
+            if not self._coerce_callback:
+                raise
+            value = self._coerce_callback(value)
+            self._check_value_type(value, field_name)
+
         if self._set_callback:
             value = self._set_callback(instance, value)
-        field_name = self._get_field_name(instance)
         instance[field_name] = value
 
 

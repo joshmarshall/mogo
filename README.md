@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/joshmarshall/mogo.png?branch=master)](https://travis-ci.org/joshmarshall/mogo)
 Mogo
 ====
 This library is a simple "schema-less" object wrapper around the
@@ -33,12 +34,6 @@ You can install it from PyPI with:
 
 ```sh
 pip install mogo
-```
-
-or if you're old school:
-
-```sh
-easy_install mogo
 ```
 
 Alternatively you should be able to grab it via git and run the following
