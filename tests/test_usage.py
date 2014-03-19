@@ -108,6 +108,15 @@ class Convertible(SportsCar):
         return self._top_down
 
 
+class WithNew(Model):
+
+    @classmethod
+    def new(cls):
+        model = cls()
+        model.new_called = True
+        return model
+
+
 class MogoTests(unittest.TestCase):
 
     def setUp(self):
@@ -146,6 +155,10 @@ class MogoTests(unittest.TestCase):
         foo = Foo.create(bar=u"cheese")
         self.assertEqual(foo.bar, "cheese")
         self.assertEqual(Foo.find().count(), 1)
+
+    def test_model_create_uses_new(self):
+        model = WithNew.create()
+        self.assertTrue(model.new_called)
 
     def test_save_defaults(self):
         """

@@ -80,14 +80,18 @@ class Model(object):
     @classmethod
     def create(cls, **kwargs):
         """ Create a new model and save it. """
-        model = cls(**kwargs)
+        # this behavior is DEPRECATED.
+        if hasattr(cls, "new"):
+            model = cls.new(**kwargs)
+        else:
+            model = cls(**kwargs)
         model.save()
         return model
 
     def __init__(self, **kwargs):
         """ Creates an instance of the model, without saving it. """
-        # compute once
         self._data = {}
+        # compute once
         should_create_fields = self._auto_create_fields
         for field, value in kwargs.iteritems():
             if field in self._fields.values():
@@ -98,7 +102,6 @@ class Model(object):
                     raise UnknownField("Unknown field %s" % field)
                 self.add_field(field, Field())
                 setattr(self, field, value)
-
         self._populate_defaults()
 
     def _populate_defaults(self):
@@ -109,15 +112,12 @@ class Model(object):
             # set the default
             attr._set_default(self, field_name)
 
-    def __new__(cls, **kwargs):
-        model = super(Model, cls).__new__(cls)
+    @classmethod
+    def from_database(cls, **kwargs):
+        model = super(cls, cls).__new__(cls, **kwargs)
         model._data = kwargs
         model._populate_defaults()
         return model
-
-    @classmethod
-    def from_database(cls, **kwargs):
-        return cls.__new__(cls, **kwargs)
 
     def get(self, field):
         return self._data.get(field)
@@ -134,6 +134,9 @@ class Model(object):
     def __iter__(self):
         for key in self._data:
             yield key
+
+    def __contains__(self, key):
+        return key in self._data
 
     def copy(self):
         return self._data.copy()
