@@ -151,6 +151,11 @@ class MogoTests(unittest.TestCase):
         foo.bar = u'model'
         self.assertTrue(foo.bar == u'model')
 
+    def test_model_new(self):
+        # deprecated...
+        foo = Foo.new(bar=u"cheese")
+        self.assertEqual(foo.bar, u"cheese")
+
     def test_model_create(self):
         foo = Foo.create(bar=u"cheese")
         self.assertEqual(foo.bar, "cheese")

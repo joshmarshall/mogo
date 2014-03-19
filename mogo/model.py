@@ -88,6 +88,10 @@ class Model(object):
         model.save()
         return model
 
+    @classmethod
+    def new(cls, **kwargs):
+        return cls(**kwargs)
+
     def __init__(self, **kwargs):
         """ Creates an instance of the model, without saving it. """
         self._data = {}
