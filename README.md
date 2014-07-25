@@ -85,7 +85,7 @@ just start accessing your model class methods. Connecting looks like:
 from mogo import connect
 
 connect("my_database") # connects to a local mongodb server with default port
-connect("foobar", host="127.0.0.1", port=28088)
+connect("foobar", "mongodb://127.0.0.1:28088")
 connect(uri="mongodb://user:pass@192.168.0.5/awesome") # for heroku, etc.
 ```
 
@@ -427,104 +427,6 @@ jayne.is_good() # False
 
 Villain.find().count() # should be 1
 ```
-
-Extra Verbage (i.e. stuff I haven't rewritten yet)
---------------------------------------------------
-Most of the basic collection methods are available on the model. Some
-are classmethods, like .find(), .find\_one(), .count(), etc. Others
-simplify things like .save() (which handles whether to insert or update),
-but still take all the same extra parameters as PyMongo's objects. A few
-properties like .id provide shorthand access to standard keys. (You
-can overwrite what .id returns by setting \_id\_field on the class.)
-Finally, a few are restricted to class-only access, like Model.remove
-and Model.drop (so you don't accidentally go wiping your collections
-by calling a class method on an instance.)
-
-The .order() on a find() or search() result gives you a shorthand
-to the .sort() method (which is also available.) You can just do:
-
-    Answers.search(value=42).order(question=ASC)
-
-...and to order by additional constraints, add more orders:
-
-    Animals.search().order(intelligence=ASC).order(digital_watches=DESC)
-
-The following is a simple user model that hashes a password, followed by
-a usage example that shows some additional methods.
-
-MODEL EXAMPLE:
-
-    from mogo import Model, Field
-    import hashlib
-    import datetime
-
-    class User(Model):
-        # By default, it uses the lowercase class name. To override,
-        # you can either set cls.__name__, or use _name:
-        _name = 'useraccount'
-
-        # Document fields are optional (and don't do much)
-        # but you'll probably want them for documentation.
-        name = Field(unicode)
-        username = Field(unicode)
-        password = Field(unicode)
-        joined = Field(datetime, datetime.now)
-
-        def set_password(self, password):
-            hash_password = hashlib.md5(password).hexdigest()
-            self.password = hash_password
-            self.save()
-
-        @classmethod
-        def authenticate(cls, username, password):
-            hash_password = hashlib.md5(password).hexdigest()
-            return cls.find_one({
-                'username':username,
-                'password':hash_password
-            })
-
-
-USAGE EXAMPLE
-
-    from mogo import connect, ASC, DESC
-
-    conn = connect('mydb') # takes host, port, etc. as well.
-
-    # Inserting...
-    new_user = User.new(username=u'test', name=u'Testing')
-    # notice that we're setting a field "role" that we
-    # did not specify in the Model definition.
-    new_user["role"] = u'admin'
-    new_user.set_password(u'f00b4r')
-    new_id = new_user.save(safe=True) # using a PyMongo param
-    user = User.grab(new_id) # grabs by ID
-
-    # Probably not the best usage example... :)
-    results = User.find({'role': 'admin'})
-    for result in results:
-        print result.username, result.name
-        result.set_password('hax0red!')
-        result.save() # only saves updated fields this time
-
-    # TODO: Document updating...
-
-    # Alternate searching
-    test = User.search(name=u"Testing").first()
-    # or...
-    test = User.find_one({"name": "Malcome Reynolds"})
-    # or to order...
-    test = User.find().order(joined=DESC).order(name=ASC)
-
-    # Deleting...
-    test.delete()
-
-    # Remove and drop class methods
-    User.remove({'role': 'admin'}) # wipes all admins
-    User.drop() # removes collection entirely
-
-Scroll through the mogo/model.py file in the project to see the
-methods available. If something is not well documented, ping me at the
-mailing list (see below).
 
 TODO
 ----

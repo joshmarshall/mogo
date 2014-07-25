@@ -123,21 +123,21 @@ class MogoTests(unittest.TestCase):
         self._conn = connect(DBNAME)
 
     def test_connect(self):
-        self.assertRaises(TypeError, connect)
-        self.assertTrue(isinstance(self._conn, pymongo.Connection))
+        self.assertRaises(ValueError, connect)
+        self.assertTrue(isinstance(self._conn, pymongo.MongoClient))
         connection = Connection.instance()
         self.assertTrue(connection._database == DBNAME)
         self._conn.disconnect()
 
     def test_uri_connect(self):
         conn = connect(uri="mongodb://localhost/%s" % DBNAME)
-        self.assertTrue(isinstance(conn, pymongo.Connection))
+        self.assertTrue(isinstance(conn, pymongo.MongoClient))
         connection = Connection.instance()
         self.assertEqual(connection._database, DBNAME)
         conn.disconnect()
         # overriding the database name
         conn = connect(DBNAME, uri="mongodb://localhost/foobar")
-        self.assertTrue(isinstance(conn, pymongo.Connection))
+        self.assertTrue(isinstance(conn, pymongo.MongoClient))
         connection = Connection.instance()
         self.assertEqual(connection._database, DBNAME)
         conn.disconnect()
