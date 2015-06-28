@@ -31,6 +31,8 @@ class UserAccount(Model):
 
 """
 
+import inspect
+
 import mogo
 from mogo.connection import Connection
 from mogo.cursor import Cursor
@@ -545,7 +547,7 @@ class PolyModel(Model):
             }
             cls._child_models[name] = child_class
             return child_class
-        if not isinstance(name, basestring) and issubclass(name, cls):
+        if inspect.isclass(name) and issubclass(name, cls):
             # Decorator without arguments
             child_cls = name
             name = child_cls.__name__.lower()
