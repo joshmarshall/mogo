@@ -73,8 +73,11 @@ class Session(object):
         self.connection = connection
 
     def disconnect(self):
-        """ Just a wrapper for the MongoClient disconnect. """
-        self.connection.connection.disconnect()
+        # PyMongo removed the disconnect keyword, close() is now used.
+        self.close()
+
+    def close(self):
+        self.connection.connection.close()
 
     def __enter__(self):
         """ Open the connection """

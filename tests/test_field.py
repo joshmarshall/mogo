@@ -25,7 +25,7 @@ class MogoFieldTests(unittest.TestCase):
     def tearDown(self):
         super(MogoFieldTests, self).tearDown()
         self._mongo_connection.drop_database("__test_change_field_name")
-        self._mongo_connection.disconnect()
+        self._mongo_connection.close()
 
     def test_field(self):
 
