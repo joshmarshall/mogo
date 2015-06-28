@@ -2,13 +2,13 @@
 Mogo
 ====
 This library is a simple "schema-less" object wrapper around the
-pymongo library (http://github.com/mongodb/mongo-python-driver). Mogo
-simply provides some simple helpers to use PyMongo in an MVC 
-environment (things like dot-attribute syntax, model methods, 
+pymongo library (http://github.com/mongodb/mongo-python-driver).
+Mogo provides helpers to use PyMongo in an MVC environment 
+(things like dot-attribute syntax, model methods, 
 reference fields, etc.)
 
-While pymongo is very simple to use and really flexible, it doesn't
-fully meet the MVC pattern because you are working with plain dicts
+While pymongo is straightforward to use and really flexible, it
+doesn't help with MVC because you are working with plain dicts
 and can't attach model logic anywhere.
 
 Mogo is licensed under the Apache License, Version 2.0
@@ -16,13 +16,12 @@ Mogo is licensed under the Apache License, Version 2.0
 
 Features
 --------
-* Object oriented design for MVC patterns
+* Put classes / structure around pymongo results 
 * Models are dicts, so dot-attribute or key access is valid. Dot attribute
   gives "smart" values, key access gives "raw" pymongo values.
 * Support for specifiying Field() attributes without requiring
   them or enforcing types.
 * Simple ReferenceField implementation.
-* (Hopefully) quick and lightweight.
 
 Requirements
 ------------
@@ -162,18 +161,13 @@ mal = Hero(name="Malcom Reynolds")
 mal.save()
 ```
 
-You can also call `create()` to instantiate and save in one command:
-
-```python
-wash = Hero.create(name="Hoban Washburne")
-```
-
 `save` will always overwrite the entire entry in the database.
 This is the same behavior that PyMongo uses, and it is helpful for
 simpler list and dictionary usage:
 
 ```python
-zoe = Hero.create(name="Zoe", powers=["warrior woman"])
+zoe = Hero(name="Zoe", powers=["warrior woman"])
+zoe.save()
 zoe["powers"].append("big darn hero")
 zoe.save()
 ```
@@ -201,7 +195,7 @@ If it is called from an instance, it uses keyword arguments to set
 attributes, and then sends off a PyMongo "$set" update:
 
 ```python
-hero = Hero.first(name="River Tam")
+hero = Hero.find_one({"name": "River Tam"})
 hero.update(powers=["telepathy", "mystic weirdness"])
 # equals the following in PyMongo
 hero = db.hero.find_one({"name": "River Tam"})
@@ -275,23 +269,6 @@ value like time.time() or datetime.now(). (Thanks @nod!)
 class Ship(Model):
     name = Field(unicode, default=u"Dormunder")
 ```
-
-Finally, you can coerce values if explicitness is less your thing. :) There are two ways to accomplish this:
-
-```python
-class FloatField(Field):
-    value_type = float
-    def _coerce_callback(self, value):
-        return float(value)
-
-# or, at class definition time...
-
-class Ship(Model):
-    damage_percent = Field(float, coerce_callback=float)
-```
-
-Both of these function in the same way. The coercion will only be run if the type doesn't match, and then it will check once again. Both of these operations occur BEFORE set_callback()'s are called.
-
 
 ReferenceField
 --------------
@@ -441,7 +418,4 @@ Contact
 * Mailing List Web: http://groups.google.com/group/mogo-python
 * Mailing List Address: mogo-python@googlegroups.com
 
-If you play with this in any way, I'd love to hear about it. I still
-have some collection methods to add to the base Model, and I haven't
-touched Map / Reduce results or anything really advanced, but
-hopefully this scratches someone else's itch too.
+If you play with this in any way, I'd love to hear about it.
