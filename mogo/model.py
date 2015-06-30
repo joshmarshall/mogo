@@ -585,4 +585,5 @@ def warn_about_keyword_deprecation(keyword):
         _WARNED[keyword] = True
         logging.warning(
             "PyMongo has removed the '{0}' keyword. Mogo disregards this "
-            "keyword and in the near future will raise an error.")
+            "keyword and in the near future will raise an error.".format(
+                keyword))
