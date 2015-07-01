@@ -405,14 +405,6 @@ jayne.is_good() # False
 Villain.find().count() # should be 1
 ```
 
-TODO
-----
-* Write more tests
-* Implement full PyMongo base compatibility
-* Implement Map-Reduce and Group
-* Maybe, MAYBE look at gridfs.
-* Make faster where possible.
-
 Contact
 -------
 * Mailing List Web: http://groups.google.com/group/mogo-python
