@@ -32,6 +32,7 @@ class UserAccount(Model):
 """
 
 import inspect
+import warnings
 
 import mogo
 from mogo.connection import Connection
@@ -577,13 +578,8 @@ class PolyModel(Model):
         return super(PolyModel, cls).find_one(spec, *args, **kwargs)
 
 
-_WARNED = {}
-
-
 def warn_about_keyword_deprecation(keyword):
-    if keyword not in _WARNED:
-        _WARNED[keyword] = True
-        logging.warning(
-            "PyMongo has removed the '{0}' keyword. Mogo disregards this "
-            "keyword and in the near future will raise an error.".format(
-                keyword))
+    warnings.warn(
+        "PyMongo has removed the '{0}' keyword. Mogo disregards this "
+        "keyword and in the near future will raise an error.".format(
+            keyword), DeprecationWarning)
