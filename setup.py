@@ -24,5 +24,5 @@ setup(
     url="http://github.com/joshmarshall/mogo/",
     license="http://www.apache.org/licenses/LICENSE-2.0",
     packages=['mogo', ],
-    install_requires=['pymongo', ]
+    install_requires=['pymongo==2.8.1', ]
 )
