@@ -1,16 +1,4 @@
 """
-A variety of tests to cover the majority of the functionality
-in mogo. I'd really like to get this to 100% code coverage...
-
-NOTES:
-I use safe=True for most of the save operations because sometimes
-it was too quick and a find or search operation performed immediately
-afterwards would not return the new object.
-
-You need to have mongod running on the local machine for this
-to run. Will probably add config options later for testing
-remote machines.
-
 If for some reason you have a database named "_mogotest", you will
 probably want to change DBNAME. :)
 """
@@ -229,7 +217,7 @@ class MogoTests(unittest.TestCase):
         foo = Foo()
         foo.bar = u'grab'
         idval = foo.save(safe=True)
-        newfoo = Foo.grab(str(idval))
+        newfoo = Foo.grab(idval)
         self.assertTrue(newfoo is not None)
         self.assertTrue(newfoo.id == idval)
         self.assertTrue(newfoo._id == idval)

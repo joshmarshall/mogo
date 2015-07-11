@@ -13,17 +13,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 
-from distutils.core import setup
+from setuptools import setup, find_packages
 
 setup(
     name='mogo',
-    version='0.3.0',
+    version='0.4.0a',
     description='Simple PyMongo "schema-less" object wrapper',
     author='Josh Marshall',
     author_email='catchjosh@gmail.com',
     url="http://github.com/joshmarshall/mogo/",
     license="http://www.apache.org/licenses/LICENSE-2.0",
-    packages=['mogo', ],
+    packages=find_packages(exclude=["tests", "dist"]),
     install_requires=['pymongo>=3.0', ],
-    classifiers=["Development Status :: 3 - Alpha"]
-)
+    classifiers=["Development Status :: 3 - Alpha"])

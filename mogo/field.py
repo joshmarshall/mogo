@@ -2,17 +2,9 @@
 
 import warnings
 
-# PyMongo moving libraries around -- eventually this can
-# go away.
-try:
-    from pymongo.dbref import DBRef
-except ImportError:
-    from bson.dbref import DBRef
+from bson.dbref import DBRef
 
-
-class EmptyRequiredField(Exception):
-    """ Raised when a required field is not set on the model instance. """
-    pass
+from mogo.exceptions import EmptyRequiredField
 
 
 class Field(object):
@@ -57,7 +49,7 @@ class Field(object):
         """ Retrieve the value from the instance """
         field_name = self._get_field_name(instance)
         value = None
-        if not field_name in instance:
+        if field_name not in instance:
             if self.required:
                 raise EmptyRequiredField(
                     "'%s' is required but is empty." % field_name)

@@ -1,135 +1,25 @@
-"""
-This is really the core of the library. It's just a dict subclass
-with a few wrapper methods. The idea is that you can access everything
-like normal in pymongo if you wanted to, with keys aplenty, or you can
-access values with attribute-style syntax.
-
-Most importantly however, you can add methods to the model which is
-sort of the main point of the MVC pattern of keeping logic with
-the appropriate construct.
-
-Specifying fields is optional, although it is recommended for
-external references.
-
-Usage example:
-
-from mogo import Model
-import hashlib
-from datetime import datetime
-
-class UserAccount(Model):
-
-    name = Field(str)
-    email = Field(str)
-    company = ReferenceField(Company)
-    created_at = Field(datetime, datetime.now)
-
-    # Custom method example
-    def set_password(self, password):
-        self.password = hashlib.md5(password).hexdigest()
-        self.save()
-
-"""
-
-import inspect
+import logging
 import warnings
 
+from bson.dbref import DBRef
+
 import mogo
+from mogo.bicontextual import BiContextual
 from mogo.connection import Connection
 from mogo.cursor import Cursor
-from mogo.field import Field, EmptyRequiredField
-
-# PyMongo change -- eventually this can go away,
-# and just be bson.dbref / bson.objectid
-try:
-    from pymongo.dbref import DBRef
-    from pymongo.objectid import ObjectId
-except ImportError:
-    from bson.dbref import DBRef
-    from bson.objectid import ObjectId
-
-
 from mogo.decorators import notinstancemethod
-import logging
+from mogo.exceptions import InvalidUpdateCall, UnknownField
+from mogo.field import Field, EmptyRequiredField
+from mogo.new_model_metaclass import NewModelMetaclass
 
 
-class BiContextual(object):
-    """ Probably a terrible, terrible idea. """
+class Model(object):
 
-    def __init__(self, name):
-        self.name = name
-
-    def __get__(self, obj, type=None):
-        """ Return a properly named method. """
-        if obj is None:
-            return getattr(type, "_class_" + self.name)
-        return getattr(obj, "_instance_" + self.name)
-
-
-class InvalidUpdateCall(Exception):
-    """ Raised whenever update is called on a new model """
-    pass
-
-
-class UnknownField(Exception):
-    """ Raised whenever an invalid field is accessed and the
-    AUTO_CREATE_FIELDS is False.
-    """
-    pass
-
-
-class NewModelClass(type):
-    """ Metaclass for inheriting field lists """
-
-    def __new__(cls, name, bases, attributes):
-        # Emptying fields by default
-        attributes["__fields"] = {}
-        new_model = super(NewModelClass, cls).__new__(
-            cls, name, bases, attributes)
-        # pre-populate fields
-        new_model._update_fields()
-        if hasattr(new_model, "_child_models"):
-            # Resetting any model register for PolyModels -- better way?
-            new_model._child_models = {}
-        return new_model
-
-    def __setattr__(cls, name, value):
-        """ Catching new field additions to classes """
-        super(NewModelClass, cls).__setattr__(name, value)
-        if isinstance(value, Field):
-            # Update the fields, because they have changed
-            cls._update_fields()
-
-
-class Model(dict):
-    """
-    Subclass this class to create your documents. Basic usage
-    is really simple:
-
-    class Foo(Model):
-        pass
-
-    foo = Foo(user='admin', password='cheese')
-    foo.save()
-    for result in Foo.find({'user':'admin'}):
-        print result.password
-    """
-
-    __metaclass__ = NewModelClass
+    __metaclass__ = NewModelMetaclass
 
     _id_field = '_id'
-    _id_type = ObjectId
     _name = None
     _collection = None
-    _init_okay = False
-    __fields = None
-
-    # DEPRECATED
-    @classmethod
-    def new(cls, **kwargs):
-        """ Overwrite in each model for custom instantiaion logic """
-        instance = cls(**kwargs)
-        return instance
 
     @classmethod
     def use(cls, session):
@@ -146,58 +36,55 @@ class Model(dict):
     def create(cls, **kwargs):
         """ Create a new model and save it. """
         if hasattr(cls, "new"):
+            # This is DEPRECATED, see warning in @classmethod 'new'
             model = cls.new(**kwargs)
         else:
             model = cls(**kwargs)
         model.save()
         return model
 
+    @classmethod
+    def new(cls, **kwargs):
+        warnings.warn(
+            "Mogo has deprecated the 'Model.new' instantiation "
+            "method -- please rewrite using __init__ to avoid issues "
+            "in the future.", DeprecationWarning)
+        return cls(**kwargs)
+
     def __init__(self, **kwargs):
         """ Creates an instance of the model, without saving it. """
-        super(Model, self).__init__()
+        self._data = {}
         # compute once
-        create_fields = self._auto_create_fields
-        is_new_instance = self._id_field not in kwargs
+        should_create_fields = self._auto_create_fields
+
         for field, value in kwargs.iteritems():
-            if is_new_instance:
-                if field in self._fields.values():
-                    # Running validation, if the field exists
-                    setattr(self, field, value)
-                else:
-                    if not create_fields:
-                        raise UnknownField("Unknown field %s" % field)
-                    self.add_field(field, Field())
-                    setattr(self, field, value)
+            if field in self._fields.values():
+                # Running validation, if the field exists
+                setattr(self, field, value)
             else:
-                self[field] = value
+                if not should_create_fields:
+                    raise UnknownField("Unknown field %s" % field)
+                self.add_field(field, Field())
+                setattr(self, field, value)
 
-        for field_name in self._fields.values():
-            attr = getattr(self.__class__, field_name)
-            self._fields[attr.id] = field_name
+        self._populate_defaults()
 
-            # set the default
-            attr._set_default(self, field_name)
-
-    @property
-    def _auto_create_fields(self):
-        if hasattr(self, "AUTO_CREATE_FIELDS"):
-            return self.AUTO_CREATE_FIELDS
-        return mogo.AUTO_CREATE_FIELDS
-
-    @property
-    def _fields(self):
-        """ Property wrapper for class fields """
-        return self.__class__.__fields
+    @classmethod
+    def from_database(cls, **kwargs):
+        model = super(cls, cls).__new__(cls, **kwargs)
+        model._data = kwargs.copy()
+        model._populate_defaults()
+        return model
 
     @classmethod
     def _update_fields(cls):
         """ (Re)update the list of fields """
-        cls.__fields = {}
+        cls._fields = {}
         for attr_key in dir(cls):
             attr = getattr(cls, attr_key)
             if not isinstance(attr, Field):
                 continue
-            cls.__fields[attr.id] = attr_key
+            cls._fields[attr.id] = attr_key
 
     @classmethod
     def add_field(cls, field_name, new_field_descriptor):
@@ -205,6 +92,48 @@ class Model(dict):
         assert(isinstance(new_field_descriptor, Field))
         setattr(cls, field_name, new_field_descriptor)
         cls._update_fields()
+
+    def get_fields(self):
+        """ Property wrapper for class fields """
+        return self.__class__._fields
+
+    # Simulating dictionary behavior
+
+    def get(self, field):
+        return self._data.get(field)
+
+    def __getitem__(self, key):
+        return self._data[key]
+
+    def __setitem__(self, key, value):
+        self._data[key] = value
+
+    def __delitem__(self, key):
+        del self._data[key]
+
+    def __iter__(self):
+        for key in self._data:
+            yield key
+
+    def __contains__(self, key):
+        return key in self._data
+
+    def copy(self):
+        return self._data.copy()
+
+    @property
+    def _auto_create_fields(self):
+        if hasattr(self, "AUTO_CREATE_FIELDS"):
+            return self.AUTO_CREATE_FIELDS
+        return mogo.AUTO_CREATE_FIELDS
+
+    def _populate_defaults(self):
+        for field_name in self._fields.values():
+            attr = getattr(self.__class__, field_name)
+            self._fields[attr.id] = field_name
+
+            # set the default
+            attr._set_default(self, field_name)
 
     def _get_id(self):
         """
@@ -224,7 +153,7 @@ class Model(dict):
             del kwargs["safe"]
         new_object_id = coll.save(self.copy(), *args, **kwargs)
         if not self._get_id():
-            super(Model, self).__setitem__(self._id_field, new_object_id)
+            self[self._id_field] = new_object_id
         return new_object_id
 
     @classmethod
@@ -360,7 +289,7 @@ class Model(dict):
         coll = cls._get_collection()
         result = coll.find_one(*args, **kwargs)
         if result:
-            result = cls(**result)
+            result = cls.from_database(**result)
         return result
 
     @classmethod
@@ -426,8 +355,6 @@ class Model(dict):
     @classmethod
     def grab(cls, object_id):
         """ A shortcut to retrieve one object by its id. """
-        if type(object_id) != cls._id_type:
-            object_id = cls._id_type(object_id)
         return cls.find_one({cls._id_field: object_id})
 
     @classmethod
@@ -449,8 +376,6 @@ class Model(dict):
     def distinct(cls, key):
         """ Wrapper for collection distinct() """
         return cls.find().distinct(key)
-
-    # Map Reduce and Group methods eventually go here.
 
     @classmethod
     def _get_collection(cls):
@@ -496,9 +421,6 @@ class Model(dict):
     @notinstancemethod
     def make_ref(cls, idval):
         """ Generates a DBRef for a given id. """
-        if type(idval) != cls._id_type:
-            # Casting to ObjectId (or str, or whatever is configured)
-            idval = cls._id_type(idval)
         return DBRef(cls._get_name(), idval)
 
     def get_ref(self):
@@ -516,66 +438,6 @@ class Model(dict):
     def __str__(self):
         """ Just points to __unicode__ """
         return self.__unicode__()
-
-
-class PolyModel(Model):
-    """ A base class for inherited models """
-
-    _child_models = None
-
-    def __new__(cls, **kwargs):
-        """ Creates a model of the appropriate type """
-        # use the base model by default
-        create_class = cls
-        key_field = getattr(cls, cls.get_child_key(), None)
-        key = kwargs.get(cls.get_child_key())
-        if not key and key_field:
-            key = key_field.default
-        if key in cls._child_models:
-            create_class = cls._child_models[key]
-        return super(PolyModel, cls).__new__(create_class, **kwargs)
-
-    @classmethod
-    def register(cls, name):
-        """ Decorator for registering a submodel """
-        def wrap(child_class):
-            """ Wrap the child class and return it """
-            # Better way to do this?
-            child_class._get_name = classmethod(lambda x: cls._get_name())
-            child_class._polyinfo = {
-                "parent": cls,
-                "name": name
-            }
-            cls._child_models[name] = child_class
-            return child_class
-        if inspect.isclass(name) and issubclass(name, cls):
-            # Decorator without arguments
-            child_cls = name
-            name = child_cls.__name__.lower()
-            return wrap(child_cls)
-        return wrap
-
-    @classmethod
-    def _update_search_spec(cls, spec):
-        """ Update the search specification on child polymodels. """
-        if hasattr(cls, "_polyinfo"):
-            name = cls._polyinfo["name"]
-            polyclass = cls._polyinfo["parent"]
-            spec = spec or {}
-            spec.setdefault(polyclass.get_child_key(), name)
-        return spec
-
-    @classmethod
-    def find(cls, spec=None, *args, **kwargs):
-        """ Add key to search params """
-        spec = cls._update_search_spec(spec)
-        return super(PolyModel, cls).find(spec, *args, **kwargs)
-
-    @classmethod
-    def find_one(cls, spec=None, *args, **kwargs):
-        """ Add key to search params for single result """
-        spec = cls._update_search_spec(spec)
-        return super(PolyModel, cls).find_one(spec, *args, **kwargs)
 
 
 def warn_about_keyword_deprecation(keyword):
