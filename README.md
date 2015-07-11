@@ -84,7 +84,7 @@ just start accessing your model class methods. Connecting looks like:
 from mogo import connect
 
 connect("my_database") # connects to a local mongodb server with default port
-connect("foobar", host="127.0.0.1", port=28088)
+connect("foobar", "mongodb://127.0.0.1:28088")
 connect(uri="mongodb://user:pass@192.168.0.5/awesome") # for heroku, etc.
 ```
 

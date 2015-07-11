@@ -1,8 +1,8 @@
 """ The wrapper for pymongo's connection stuff. """
 
-from pymongo import Connection as PyConnection
-from pymongo.errors import ConnectionFailure
 import urlparse
+from pymongo import MongoClient
+from pymongo.errors import ConnectionFailure
 
 
 class Connection(object):
@@ -13,8 +13,6 @@ class Connection(object):
 
     _instance = None
     connection = None
-    _host = None
-    _port = None
     _database = None
 
     @classmethod
@@ -25,29 +23,21 @@ class Connection(object):
         return cls._instance
 
     @classmethod
-    def connect(cls, database=None, *args, **kwargs):
+    def connect(cls, database=None, uri="mongodb://localhost:27017", **kwargs):
         """
         Wraps a pymongo connection.
         TODO: Allow some of the URI stuff.
         """
-        if "uri" in kwargs:
-            uri = kwargs.pop("uri")
-            parsed_uri = urlparse.urlparse(uri)
-            # allows overriding db name
-            database = database or parsed_uri.path.replace("/", "")
-            new_uri_parts = [p for p in parsed_uri]
-            if len(new_uri_parts) > 2:
-                # this is...hacky -- would love a better way to
-                # augment the urlparse results to ensure that
-                # Mogo controls the dbname
-                new_uri_parts[2] = "/"
-            parsed_uri = tuple(new_uri_parts)
-            kwargs["host"] = urlparse.urlunparse(parsed_uri)
-        elif not database:
-            raise TypeError("A database name or uri is required to connect.")
+        if not database:
+            database = urlparse.urlparse(uri).path
+            while database.startswith("/"):
+                database = database[1:]
+            if not database:
+                raise ValueError("A database name is required to connect.")
+
         conn = cls.instance()
         conn._database = database
-        conn.connection = PyConnection(*args, **kwargs)
+        conn.connection = MongoClient(uri, **kwargs)
         return conn.connection
 
     def get_database(self, database=None):
@@ -79,12 +69,15 @@ class Session(object):
         """ Connect to MongoDB """
         connection = Connection()
         connection._database = self.database
-        connection.connection = PyConnection(*self.args, **self.kwargs)
+        connection.connection = MongoClient(*self.args, **self.kwargs)
         self.connection = connection
 
     def disconnect(self):
-        """ Just a wrapper for the PyConnection disconnect. """
-        self.connection.connection.disconnect()
+        # PyMongo removed the disconnect keyword, close() is now used.
+        self.close()
+
+    def close(self):
+        self.connection.connection.close()
 
     def __enter__(self):
         """ Open the connection """

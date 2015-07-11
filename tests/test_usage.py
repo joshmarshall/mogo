@@ -123,24 +123,24 @@ class MogoTests(unittest.TestCase):
         self._conn = connect(DBNAME)
 
     def test_connect(self):
-        self.assertRaises(TypeError, connect)
-        self.assertTrue(isinstance(self._conn, pymongo.Connection))
+        self.assertRaises(ValueError, connect)
+        self.assertTrue(isinstance(self._conn, pymongo.MongoClient))
         connection = Connection.instance()
         self.assertTrue(connection._database == DBNAME)
-        self._conn.disconnect()
+        self._conn.close()
 
     def test_uri_connect(self):
         conn = connect(uri="mongodb://localhost/%s" % DBNAME)
-        self.assertTrue(isinstance(conn, pymongo.Connection))
+        self.assertTrue(isinstance(conn, pymongo.MongoClient))
         connection = Connection.instance()
         self.assertEqual(connection._database, DBNAME)
-        conn.disconnect()
+        conn.close()
         # overriding the database name
         conn = connect(DBNAME, uri="mongodb://localhost/foobar")
-        self.assertTrue(isinstance(conn, pymongo.Connection))
+        self.assertTrue(isinstance(conn, pymongo.MongoClient))
         connection = Connection.instance()
         self.assertEqual(connection._database, DBNAME)
-        conn.disconnect()
+        conn.close()
 
     def test_model(self):
         foo = Foo(bar=u'cheese')
@@ -276,7 +276,6 @@ class MogoTests(unittest.TestCase):
         foo.save(safe=True)
         result = Foo.find_one({'bar': u'update'})
         result["hidden"] = True
-        #result.bar = u"new update"
         setattr(result, "bar", u"new update")
         result.save(safe=True)
         result2 = Foo.find_one({'bar': 'new update'})
@@ -382,9 +381,7 @@ class MogoTests(unittest.TestCase):
         foo = Foo()
         foo.bar = u"ref"
         foo.save(safe=True)
-        #result = Foo.find_one({"bar": "ref"})
         new = Foo.find_one({"bar": "ref"})
-        #new.bar = "Testing"
         new.ref = foo
         new.save(safe=True)
         result2 = Foo.find_one({"bar": "ref"})
@@ -432,7 +429,7 @@ class MogoTests(unittest.TestCase):
         db = self._conn[DBNAME]
         for i in range(100):
             obj = {"alt": i % 2, "count": i}
-            db.counter.save(obj, safe=True)
+            db.counter.save(obj)
 
         class Counter(Model):
             pass
@@ -551,7 +548,7 @@ class MogoTests(unittest.TestCase):
         foo2 = FooWrapped()
         foo2.save(safe=True)
         self.assertEqual(coll.find().count(), 1)
-        session.disconnect()
+        session.close()
 
     def test_connection_with_statement(self):
         """ Test the with statement alternate connection """
@@ -638,7 +635,7 @@ class MogoTests(unittest.TestCase):
         if DELETE:
             self._conn.drop_database(DBNAME)
             self._conn.drop_database(ALTDB)
-        self._conn.disconnect()
+        self._conn.close()
 
 if __name__ == '__main__':
     if '--no-drop' in sys.argv:

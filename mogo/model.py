@@ -31,6 +31,9 @@ class UserAccount(Model):
 
 """
 
+import inspect
+import warnings
+
 import mogo
 from mogo.connection import Connection
 from mogo.cursor import Cursor
@@ -216,6 +219,9 @@ class Model(dict):
         """ Passthru to PyMongo's save after checking values """
         coll = self._get_collection()
         self._check_required()
+        if "safe" in kwargs:
+            warn_about_keyword_deprecation("safe")
+            del kwargs["safe"]
         new_object_id = coll.save(self.copy(), *args, **kwargs)
         if not self._get_id():
             super(Model, self).__setitem__(self._id_field, new_object_id)
@@ -224,6 +230,9 @@ class Model(dict):
     @classmethod
     def _class_update(cls, *args, **kwargs):
         """ Direct passthru to PyMongo's update. """
+        if "safe" in kwargs:
+            warn_about_keyword_deprecation("safe")
+            del kwargs["safe"]
         coll = cls._get_collection()
         # Maybe should do something 'clever' with the query?
         # E.g. transform Model instances to DBRefs automatically?
@@ -233,6 +242,9 @@ class Model(dict):
         """ Wraps keyword arguments with setattr and then uses PyMongo's
         update call.
          """
+        if "safe" in kwargs:
+            warn_about_keyword_deprecation("safe")
+            del kwargs["safe"]
         object_id = self._get_id()
         if not object_id:
             raise InvalidUpdateCall("Cannot call update on an unsaved model")
@@ -240,7 +252,8 @@ class Model(dict):
         # Currently the only argument we "pass on" is "safe"
         pass_kwargs = {}
         if "safe" in kwargs:
-            pass_kwargs["safe"] = kwargs.pop("safe")
+            del kwargs["safe"]
+            warn_about_keyword_deprecation("safe")
         body = {}
         checks = []
         for key, value in kwargs.iteritems():
@@ -341,6 +354,9 @@ class Model(dict):
             raise ValueError(
                 "find_one() requires a query when called with "
                 "keyword arguments")
+        if "timeout" in kwargs:
+            warn_about_keyword_deprecation("timeout")
+            del kwargs["timeout"]
         coll = cls._get_collection()
         result = coll.find_one(*args, **kwargs)
         if result:
@@ -359,6 +375,11 @@ class Model(dict):
             # Model.find({}, timeout=False)
             raise ValueError(
                 'find() requires a query when called with keyword arguments')
+
+        if "timeout" in kwargs:
+            warn_about_keyword_deprecation("timeout")
+            del kwargs["timeout"]
+
         return Cursor(cls, *args, **kwargs)
 
     @classmethod
@@ -527,7 +548,7 @@ class PolyModel(Model):
             }
             cls._child_models[name] = child_class
             return child_class
-        if not isinstance(name, basestring) and issubclass(name, cls):
+        if inspect.isclass(name) and issubclass(name, cls):
             # Decorator without arguments
             child_cls = name
             name = child_cls.__name__.lower()
@@ -555,3 +576,10 @@ class PolyModel(Model):
         """ Add key to search params for single result """
         spec = cls._update_search_spec(spec)
         return super(PolyModel, cls).find_one(spec, *args, **kwargs)
+
+
+def warn_about_keyword_deprecation(keyword):
+    warnings.warn(
+        "PyMongo has removed the '{0}' keyword. Mogo disregards this "
+        "keyword and in the near future will raise an error.".format(
+            keyword), DeprecationWarning)
