@@ -15,14 +15,17 @@ limitations under the License.
 
 from setuptools import setup, find_packages
 
+with open("VERSION") as version_fp:
+    VERSION = version_fp.read().strip()
+
 setup(
-    name='mogo',
-    version='0.4.0a',
-    description='Simple PyMongo "schema-less" object wrapper',
-    author='Josh Marshall',
-    author_email='catchjosh@gmail.com',
+    name="mogo",
+    version=VERSION,
+    description="Simple PyMongo \"schema-less\" object wrapper",
+    author="Josh Marshall",
+    author_email="catchjosh@gmail.com",
     url="http://github.com/joshmarshall/mogo/",
     license="http://www.apache.org/licenses/LICENSE-2.0",
     packages=find_packages(exclude=["tests", "dist"]),
-    install_requires=['pymongo>=3.0', ],
+    install_requires=["pymongo>=3.0", ],
     classifiers=["Development Status :: 3 - Alpha"])

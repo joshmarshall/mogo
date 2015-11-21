@@ -94,6 +94,10 @@ class MogoTestModel(unittest.TestCase):
         self.assertRaises(EmptyRequiredField, getattr, foo, "required")
         self.assertRaises(InvalidUpdateCall, foo.update, foo=u"bar")
 
+    def test_model_null_equality_comparison(self):
+        foo = Foo()
+        self.assertNotEqual(None, foo)
+
     def test_null_reference(self):
         foo = Foo()
         foo.reference = None

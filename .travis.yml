@@ -1,5 +1,16 @@
 language: python
 services:
-    - mongodb
-install: pip install -r requirements.txt
+- mongodb
+install:
+- pip install -r requirements.txt
+- pip install twine
 script: nosetests tests/
+sudo: false
+deploy:
+  provider: pypi
+  user: joshmarshall
+  password:
+    secure: GfxQQNpDdhfDBiLpQo0X0Jepq8tFvbqBTUQ/lRvoLwM2nYQRwJUen4qNxViLMmrJfs3vEnTD8lLX8BNO4XBDcMwEEhhPhZMY4x6JiK4fb+RboGbseBLvc2R6LbvnYSPCpnA0gO6fFX3ilGOmdFxQvoEWAM+djhb4tNZQzn1AgiY=
+  on:
+    tags: true
+    repo: joshmarshall/mogo

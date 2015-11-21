@@ -401,6 +401,9 @@ class Model(object):
         This method compares two objects names and id values.
         If they match, they are "equal".
         """
+        if other is None:
+            return False
+
         this_id = self._get_id()
         other_id = other._get_id()
         if self._get_name() == other._get_name() and \
