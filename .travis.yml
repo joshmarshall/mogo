@@ -1,8 +1,11 @@
 language: python
 services:
 - mongodb
-install: pip install -r requirements.txt
+install:
+- pip install -r requirements.txt
+- pip install twine
 script: nosetests tests/
+sudo: false
 deploy:
   provider: pypi
   user: joshmarshall
