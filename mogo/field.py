@@ -73,10 +73,6 @@ class Field(object):
             return
         if hasattr(self, "default"):
             if not callable(self.default):
-                warnings.warn(
-                    "Defaults that are not functions (or callable) "
-                    "are deprecated, and will be removed in a future version.",
-                    DeprecationWarning)
                 default_value = self.default
             else:
                 default_value = self.default()
