@@ -249,6 +249,15 @@ class MogoTests(unittest.TestCase):
         for f in result:
             self.assertTrue(type(f) is Foo)
 
+    def test_find_len(self):
+        foo = Foo(bar=u'find')
+        foo.save(safe=True)
+        foo2 = Foo(bar=u'find')
+        foo2.save()
+        result = Foo.find({'bar': u'find'})
+        self.assertTrue(result.count() == 2)
+        self.assertTrue(len(result) == 2)
+
     def test_bad_find(self):
         foo = Foo.new(bar=u'bad_find')
         foo.save(safe=True)
