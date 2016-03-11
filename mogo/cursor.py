@@ -26,6 +26,10 @@ class Cursor(PyCursor):
         value = PyCursor.next(self)
         return self._model(**value)
 
+    # convenient because if it quacks like a list...
+    def __len__(self):
+        return self.count()
+
     def __getitem__(self, *args, **kwargs):
         value = PyCursor.__getitem__(self, *args, **kwargs)
         if type(value) == self.__class__:
