@@ -32,6 +32,7 @@ class UserAccount(Model):
 """
 
 import inspect
+from six import with_metaclass
 import warnings
 
 import mogo
@@ -101,7 +102,7 @@ class NewModelClass(type):
             cls._update_fields()
 
 
-class Model(dict):
+class Model(with_metaclass(NewModelClass, dict)):
     """
     Subclass this class to create your documents. Basic usage
     is really simple:
@@ -114,8 +115,6 @@ class Model(dict):
     for result in Foo.find({'user':'admin'}):
         print result.password
     """
-
-    __metaclass__ = NewModelClass
 
     _id_field = '_id'
     _id_type = ObjectId
@@ -158,7 +157,7 @@ class Model(dict):
         # compute once
         create_fields = self._auto_create_fields
         is_new_instance = self._id_field not in kwargs
-        for field, value in kwargs.iteritems():
+        for field, value in kwargs.items():
             if is_new_instance:
                 if field in self._fields.values():
                     # Running validation, if the field exists
@@ -256,7 +255,7 @@ class Model(dict):
             warn_about_keyword_deprecation("safe")
         body = {}
         checks = []
-        for key, value in kwargs.iteritems():
+        for key, value in kwargs.items():
             if key in self._fields.values():
                 setattr(self, key, value)
             else:
@@ -397,7 +396,7 @@ class Model(dict):
         turns instances into DBRefs.
         """
         query = {}
-        for key, value in kwargs.iteritems():
+        for key, value in kwargs.items():
             if isinstance(value, Model):
                 value = value.get_ref()
             field = getattr(cls, key)

@@ -24,6 +24,6 @@ setup(
     url="http://github.com/joshmarshall/mogo/",
     license="http://www.apache.org/licenses/LICENSE-2.0",
     packages=['mogo', ],
-    install_requires=['pymongo>=3.0', ],
+    install_requires=['pymongo>=3.0', 'six'],
     classifiers=["Development Status :: 3 - Alpha"]
 )

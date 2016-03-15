@@ -8,6 +8,14 @@ from mogo import Field, ReferenceField, connect, Model, EnumField
 from mogo.field import EmptyRequiredField
 
 
+try:
+    unicode
+    basestring
+except NameError:
+    unicode = str
+    basestring = str
+
+
 class Base(object):
     pass
 

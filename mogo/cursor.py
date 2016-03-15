@@ -22,9 +22,17 @@ class Cursor(PyCursor):
         PyCursor.__init__(
             self, model._get_collection(), spec, *args, **kwargs)
 
-    def next(self):
-        value = PyCursor.next(self)
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        value = super(Cursor, self).next()
         return self._model(**value)
+
+    def next(self):
+        # still need this, since pymongo's cursor still implements next()
+        # and returns the raw dict.
+        return self.__next__()
 
     # convenient because if it quacks like a list...
     def __len__(self):
@@ -44,7 +52,7 @@ class Cursor(PyCursor):
     def order(self, **kwargs):
         if len(kwargs) != 1:
             raise ValueError("order() requires one field = ASC or DESC.")
-        for key, value in kwargs.iteritems():
+        for key, value in kwargs.items():
             if value not in (ASC, DESC):
                 raise TypeError("Order value must be mogo.ASC or mogo.DESC.")
             self._order_entries.append((key, value))

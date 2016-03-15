@@ -1,6 +1,10 @@
 """ The wrapper for pymongo's connection stuff. """
 
-import urlparse
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
+
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 
@@ -29,7 +33,7 @@ class Connection(object):
         TODO: Allow some of the URI stuff.
         """
         if not database:
-            database = urlparse.urlparse(uri).path
+            database = urlparse(uri).path
             while database.startswith("/"):
                 database = database[1:]
             if not database:
