@@ -3,8 +3,8 @@ Mogo
 ====
 This library is a simple "schema-less" object wrapper around the
 pymongo library (http://github.com/mongodb/mongo-python-driver).
-Mogo provides helpers to use PyMongo in an MVC environment 
-(things like dot-attribute syntax, model methods, 
+Mogo provides helpers to use PyMongo in an MVC environment
+(things like dot-attribute syntax, model methods,
 reference fields, etc.)
 
 While pymongo is straightforward to use and really flexible, it
@@ -16,7 +16,7 @@ Mogo is licensed under the Apache License, Version 2.0
 
 Features
 --------
-* Put classes / structure around pymongo results 
+* Put classes / structure around pymongo results
 * Models are dicts, so dot-attribute or key access is valid. Dot attribute
   gives "smart" values, key access gives "raw" pymongo values.
 * Support for specifiying Field() attributes without requiring
@@ -25,6 +25,7 @@ Features
 
 Requirements
 ------------
+* Python 2.7+ or 3.3+
 * PyMongo - http://github.com/mongodb/mongo-python-driver
 
 Installation
@@ -177,7 +178,7 @@ mention produce race conditions and have people saving over each
 other's changes.
 
 This is where `update` comes in. Note that the `update` method does
-NOT function like the dictionary method. It has two roles, 
+NOT function like the dictionary method. It has two roles,
 depending on whether it is called from a class or from an instance.
 
 If it is called from a class, it just passes everything on to PyMongo
@@ -322,7 +323,7 @@ a `(set|get)\_callback` do the retrieval logic yourself.
 PolyModels
 ----------
 MongoDB lets you store any fields in any collection -- this means it is
-particularly well suited for storing and querying across inheritance 
+particularly well suited for storing and querying across inheritance
 relationships. I've recently added a new model type of `PolyModel` that
 lets you define this in a (hopefully) simple way.
 

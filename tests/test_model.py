@@ -6,6 +6,12 @@ from mogo.field import ReferenceField, Field, EmptyRequiredField
 import unittest
 
 
+try:
+    unicode
+except NameError:
+    unicode = str
+
+
 class MockCollection(object):
     pass
 

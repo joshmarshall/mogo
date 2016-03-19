@@ -28,6 +28,11 @@ try:
 except ImportError:
     from bson.objectid import ObjectId
 
+try:
+    unicode
+except NameError:
+    unicode = str
+
 import sys
 from datetime import datetime
 
@@ -248,6 +253,16 @@ class MogoTests(unittest.TestCase):
         self.assertTrue(f.bar == u'find')
         for f in result:
             self.assertTrue(type(f) is Foo)
+
+    def test_find_next_fallback(self):
+        # this is mostly to verify Python 3 compatibility with the next()
+        foo = Foo.create(bar=u"find")
+        foo2 = Foo.create(bar=u"find")
+        result = Foo.find({'bar': u'find'})
+        self.assertEqual(foo, result.next())
+        self.assertEqual(foo2, result.next())
+        with self.assertRaises(StopIteration):
+            result.next()
 
     def test_find_len(self):
         foo = Foo(bar=u'find')
@@ -633,7 +648,7 @@ class MogoTests(unittest.TestCase):
         foo = Foo()
         foo.bar = u"search"
         foo.save(safe=True)
-        for x in xrange(3):
+        for x in range(3):
             foo_x = Foo()
             foo_x.bar = u"search"
             foo_x.save(safe=True)
