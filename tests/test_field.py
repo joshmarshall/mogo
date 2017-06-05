@@ -92,7 +92,7 @@ class MogoFieldTests(unittest.TestCase):
             abbreviated=u"lorem ipsum", long_name=u"malarky", regular=u"meh.")
 
         # Check the model's dictionary.
-        self.assertTrue("abrv" in model)
+        self.assertIn("abrv", model)
         # Access by friendly name.
         self.assertEqual(u"lorem ipsum", model.abbreviated)
         # No access by field_name.
@@ -155,18 +155,18 @@ class MogoFieldTests(unittest.TestCase):
             field = Field()  # i.e. no default value
 
         entry = TestDefaultModel()
-        self.assertFalse("field" in entry)
+        self.assertNotIn("field", entry)
 
-        self.assertEqual(None, entry.field)
-        self.assertFalse("field" in entry)
+        self.assertIsNone(entry.field)
+        self.assertNotIn("field", entry)
 
         class TestDefaultModel2(Model):
             field = Field(default=None)
 
         entry2 = TestDefaultModel2()
-        self.assertTrue("field" in entry2)
-        self.assertEqual(None, entry2.field)
-        self.assertEqual(None, entry2["field"])
+        self.assertIn("field", entry2)
+        self.assertIsNone(entry2.field)
+        self.assertIsNone(entry2["field"])
 
         entry3 = TestDefaultModel2(field="foobar")
         self.assertEqual("foobar", entry3.field)

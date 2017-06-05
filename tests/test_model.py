@@ -78,12 +78,12 @@ class MogoTestModel(unittest.TestCase):
     def test_model_fields_init(self):
         """ Test that the model properly retrieves the fields """
         foo = Foo()
-        self.assertTrue("field" in foo._fields.values())
-        self.assertTrue("required" in foo._fields.values())
-        self.assertTrue("callback" in foo._fields.values())
-        self.assertTrue("reference" in foo._fields.values())
-        self.assertTrue("default" in foo._fields.values())
-        self.assertTrue("_private_field" in foo._fields.values())
+        self.assertIn("field", foo._fields.values())
+        self.assertIn("required", foo._fields.values())
+        self.assertIn("callback", foo._fields.values())
+        self.assertIn("reference", foo._fields.values())
+        self.assertIn("default", foo._fields.values())
+        self.assertIn("_private_field", foo._fields.values())
 
     def test_model_create_fields_init(self):
         """ Test that the model creates fields that don't exist """
@@ -94,10 +94,10 @@ class MogoTestModel(unittest.TestCase):
             schemaless = Testing(foo="bar")
             self.assertEqual(schemaless["foo"], "bar")
             self.assertEqual(schemaless.foo, "bar")
-            self.assertTrue("foo" in schemaless.copy())
+            self.assertIn("foo", schemaless.copy())
             foo_field = getattr(Testing, "foo")
-            self.assertTrue(foo_field is not None)
-            self.assertTrue(id(foo_field) in schemaless._fields)
+            self.assertIsNotNone(foo_field)
+            self.assertIn(id(foo_field), schemaless._fields)
         finally:
             mogo.AUTO_CREATE_FIELDS = False
 
@@ -107,7 +107,7 @@ class MogoTestModel(unittest.TestCase):
             pass
         Testing.add_field(
             "foo", Field(unicode, set_callback=lambda x, y: u"bar"))
-        self.assertTrue(isinstance(Testing.foo, Field))
+        self.assertIsInstance(Testing.foo, Field)
         testing = Testing(foo=u"whatever")
         self.assertEqual(testing["foo"], u"bar")
         self.assertEqual(testing.foo, u"bar")
@@ -132,7 +132,7 @@ class MogoTestModel(unittest.TestCase):
 
     def test_model_null_equality_comparison(self):
         foo = Foo()
-        self.assertNotEqual(None, foo)
+        self.assertIsNotNone(foo)
 
     def test_null_reference(self):
         foo = Foo()
@@ -160,23 +160,23 @@ class MogoTestModel(unittest.TestCase):
         self.assertEqual(Person._get_name(), Child._get_name())
         self.assertEqual(Person._get_name(), Infant._get_name())
         person = Person()
-        self.assertTrue(isinstance(person, Person))
+        self.assertIsInstance(person, Person)
         self.assertTrue(person.walk())
         self.assertEqual(person.role, "person")
         with self.assertRaises(AttributeError):
             person.crawl()
         child = Person(role=u"child")
-        self.assertTrue(isinstance(child, Child))
+        self.assertIsInstance(child, Child)
         child2 = Child()
         self.assertTrue(child2.walk())
         self.assertEqual(child2.role, "child")
         child3 = Child(role=u"person")
-        self.assertTrue(isinstance(child3, Person))
+        self.assertIsInstance(child3, Person)
 
         infant = Infant()
-        self.assertTrue(isinstance(infant, Infant))
+        self.assertIsInstance(infant, Infant)
         self.assertEqual(infant.age, 3)
         self.assertTrue(infant.crawl())
         self.assertFalse(infant.walk())
         infant2 = Person(age=3, role=u"infant")
-        self.assertTrue(isinstance(infant2, Infant))
+        self.assertIsInstance(infant2, Infant)

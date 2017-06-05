@@ -129,32 +129,32 @@ class MogoTests(unittest.TestCase):
 
     def test_connect(self):
         self.assertRaises(ValueError, connect)
-        self.assertTrue(isinstance(self._conn, pymongo.MongoClient))
+        self.assertIsInstance(self._conn, pymongo.MongoClient)
         connection = Connection.instance()
-        self.assertTrue(connection._database == DBNAME)
+        self.assertEqual(connection._database, DBNAME)
         self._conn.close()
 
     def test_uri_connect(self):
         conn = connect(uri="mongodb://localhost/%s" % DBNAME)
-        self.assertTrue(isinstance(conn, pymongo.MongoClient))
+        self.assertIsInstance(conn, pymongo.MongoClient)
         connection = Connection.instance()
         self.assertEqual(connection._database, DBNAME)
         conn.close()
         # overriding the database name
         conn = connect(DBNAME, uri="mongodb://localhost/foobar")
-        self.assertTrue(isinstance(conn, pymongo.MongoClient))
+        self.assertIsInstance(conn, pymongo.MongoClient)
         connection = Connection.instance()
         self.assertEqual(connection._database, DBNAME)
         conn.close()
 
     def test_model(self):
         foo = Foo(bar=u'cheese')
-        self.assertTrue(foo.bar == u'cheese')
-        self.assertTrue(foo.dflt == u'dflt')
-        self.assertTrue(foo.callme == u'funtimes')
-        self.assertTrue(isinstance(foo.dtnow, datetime))
+        self.assertEqual(foo.bar, u'cheese')
+        self.assertEqual(foo.dflt, u'dflt')
+        self.assertEqual(foo.callme, u'funtimes')
+        self.assertIsInstance(foo.dtnow, datetime)
         foo.bar = u'model'
-        self.assertTrue(foo.bar == u'model')
+        self.assertEqual(foo.bar, u'model')
 
     def test_model_create(self):
         foo = Foo.create(bar=u"cheese")
@@ -173,14 +173,14 @@ class MogoTests(unittest.TestCase):
         foo = Foo(bar=u'goat')
         id_ = foo.save(safe=True)
         raw_result = Foo._collection.find_one({"_id": id_})
-        self.assertTrue(raw_result["dflt"] == u'dflt')
+        self.assertEqual(raw_result["dflt"], u'dflt')
 
     def test_create_delete(self):
         foo = Foo()
         foo.bar = u'create_delete'
         idval = foo.save(safe=True)
-        self.assertTrue(type(idval) is ObjectId)
-        self.assertTrue(foo.id == idval)
+        self.assertIs(type(idval), ObjectId)
+        self.assertEqual(foo.id, idval)
 
     def test_search_or_create(self):
         foo = Foo.search_or_create(bar=u'howdy')
@@ -201,8 +201,8 @@ class MogoTests(unittest.TestCase):
         foo.bar = u'find_one'
         idval = foo.save(safe=True)
         foo2 = Foo.find_one({u'bar': u'find_one'})
-        self.assertTrue(foo2._get_id() == idval)
-        self.assertTrue(foo2 == foo)
+        self.assertEqual(foo2._get_id(), idval)
+        self.assertEqual(foo2, foo)
 
     def test_bad_find_one(self):
         foo = Foo.new(bar=u'bad_find_one')
@@ -228,16 +228,16 @@ class MogoTests(unittest.TestCase):
         foo.bar = u'count'
         foo.save(safe=True)
         count = Foo.count()
-        self.assertTrue(count == 1)
+        self.assertEqual(count, 1)
 
     def test_grab(self):
         foo = Foo()
         foo.bar = u'grab'
         idval = foo.save(safe=True)
         newfoo = Foo.grab(str(idval))
-        self.assertTrue(newfoo is not None)
-        self.assertTrue(newfoo.id == idval)
-        self.assertTrue(newfoo._id == idval)
+        self.assertIsNotNone(newfoo)
+        self.assertEqual(newfoo.id, idval)
+        self.assertEqual(newfoo._id, idval)
 
     def test_find(self):
         foo = Foo()
@@ -247,12 +247,12 @@ class MogoTests(unittest.TestCase):
         foo2.bar = u'find'
         foo2.save()
         result = Foo.find({'bar': u'find'})
-        self.assertTrue(result.count() == 2)
+        self.assertEqual(result.count(), 2)
         f = result[0]  # should be first one
-        self.assertTrue(type(f) is Foo)
-        self.assertTrue(f.bar == u'find')
+        self.assertIs(type(f), Foo)
+        self.assertEqual(f.bar, u'find')
         for f in result:
-            self.assertTrue(type(f) is Foo)
+            self.assertIs(type(f), Foo)
 
     def test_find_next_fallback(self):
         # this is mostly to verify Python 3 compatibility with the next()
@@ -270,8 +270,8 @@ class MogoTests(unittest.TestCase):
         foo2 = Foo(bar=u'find')
         foo2.save()
         result = Foo.find({'bar': u'find'})
-        self.assertTrue(result.count() == 2)
-        self.assertTrue(len(result) == 2)
+        self.assertEqual(result.count(), 2)
+        self.assertEqual(len(result), 2)
 
     def test_bad_find(self):
         foo = Foo.new(bar=u'bad_find')
@@ -286,7 +286,7 @@ class MogoTests(unittest.TestCase):
     def test_setattr_save(self):
         foo = Foo(bar=u"baz")
         foo.save(safe=True)
-        self.assertTrue(Foo.grab(foo.id) is not None)
+        self.assertIsNotNone(Foo.grab(foo.id))
         setattr(foo, "bar", u"quz")
         self.assertEqual(foo.bar, u"quz")
         self.assertEqual(getattr(foo, "bar"), "quz")
@@ -304,11 +304,11 @@ class MogoTests(unittest.TestCase):
         result.save(safe=True)
         result2 = Foo.find_one({'bar': 'new update'})
         self.assertEqual(result.id, result2.id)
-        self.assertTrue(result == result2)
+        self.assertEqual(result, result2)
         self.assertTrue(result["hidden"])
         self.assertTrue(result2["hidden"])
-        self.assertTrue(result2.bar == u'new update')
-        self.assertTrue(result.bar == u'new update')
+        self.assertEqual(result2.bar, u'new update')
+        self.assertEqual(result.bar, u'new update')
 
     def test_flexible_fields(self):
         """ Test that anything can be passed in """
@@ -325,7 +325,7 @@ class MogoTests(unittest.TestCase):
             self.assertEqual(instance.age, 5)
 
             retrieved = Flexible.find_one()
-            self.assertTrue(retrieved == instance)
+            self.assertEqual(retrieved, instance)
             # Test that the flexible fields were set
             self.assertEqual(instance.foo, "bar")
             self.assertEqual(instance.age, 5)
@@ -409,7 +409,7 @@ class MogoTests(unittest.TestCase):
         new.ref = foo
         new.save(safe=True)
         result2 = Foo.find_one({"bar": "ref"})
-        self.assertTrue(result2.ref == foo)
+        self.assertEqual(result2.ref, foo)
 
     def test_search(self):
         nothing = Foo.search(bar=u'whatever').first()
@@ -418,8 +418,8 @@ class MogoTests(unittest.TestCase):
         foo.bar = u"search"
         foo.save(safe=True)
         result = foo.search(bar=u"search")
-        self.assertTrue(result.count() == 1)
-        self.assertTrue(result.first() == foo)
+        self.assertEqual(result.count(), 1)
+        self.assertEqual(result.first(), foo)
 
     def test_search_before_new(self):
         """ Testing the bug where fields are not populated before search. """
@@ -447,7 +447,7 @@ class MogoTests(unittest.TestCase):
         user = Person(name="Test", email="whatever@whatever.com")
         user.company = company
         user.save(safe=True)
-        self.assertTrue(company.people.count() == 1)
+        self.assertEqual(company.people.count(), 1)
 
     def test_group(self):
         db = self._conn[DBNAME]
@@ -485,10 +485,10 @@ class MogoTests(unittest.TestCase):
             if len(results) == 5:
                 break
 
-        self.assertTrue(results == [99, 98, 97, 96, 95])
+        self.assertEqual(results, [99, 98, 97, 96, 95])
         mod_result = query2.first()
-        self.assertTrue(mod_result.mod == 9)
-        self.assertTrue(mod_result.up == 99)
+        self.assertEqual(mod_result.mod, 9)
+        self.assertEqual(mod_result.up, 99)
 
     def test_simple_inheritance(self):
         """ Test simple custom model inheritance """
@@ -517,7 +517,7 @@ class MogoTests(unittest.TestCase):
         car2 = Car.find().first()
         self.assertEqual(car, car2)
         self.assertEqual(car.copy(), car2.copy())
-        self.assertTrue(isinstance(car2, Car))
+        self.assertIsInstance(car2, Car)
         sportscar = SportsCar()
         sportscar.save(safe=True)
         self.assertTrue(sportscar.drive())
@@ -530,7 +530,7 @@ class MogoTests(unittest.TestCase):
         self.assertEqual(sportscar.type, "sportscar")
         self.assertEqual(Car.find().count(), 2)
         sportscar2 = Car.find({"doors": 2}).first()
-        self.assertTrue(isinstance(sportscar2, SportsCar))
+        self.assertIsInstance(sportscar2, SportsCar)
         self.assertTrue(sportscar2.drive())
         convertible = Car(type=u"convertible")
         convertible.save(safe=True)
@@ -541,9 +541,9 @@ class MogoTests(unittest.TestCase):
         all_cars = list(Car.find())
         self.assertEqual(len(all_cars), 3)
         car, sportscar, convertible = all_cars
-        self.assertTrue(isinstance(car, Car))
-        self.assertTrue(isinstance(sportscar, SportsCar))
-        self.assertTrue(isinstance(convertible, Convertible))
+        self.assertIsInstance(car, Car)
+        self.assertIsInstance(sportscar, SportsCar)
+        self.assertIsInstance(convertible, Convertible)
 
         self.assertEqual(SportsCar.search().count(), 1)
 
@@ -653,7 +653,7 @@ class MogoTests(unittest.TestCase):
             foo_x.bar = u"search"
             foo_x.save(safe=True)
         result = foo.first(bar=u"search")
-        self.assertTrue(result == foo)
+        self.assertEqual(result, foo)
 
     def tearDown(self):
         if DELETE:
