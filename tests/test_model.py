@@ -27,6 +27,8 @@ class Foo(Model):
     field = Field()
     required = Field(required=True)
     default = Field(default="default")
+    defaultDict = Field(default={})
+    defaultList = Field(default=[])
     callback = Field(get_callback=lambda x, y: "foo",
                      set_callback=lambda x, y: "bar")
     reference = ReferenceField(Ref)
@@ -180,3 +182,11 @@ class MogoTestModel(unittest.TestCase):
         self.assertFalse(infant.walk())
         infant2 = Person(age=3, role=u"infant")
         self.assertIsInstance(infant2, Infant)
+
+    def test_non_shared_defaults(self):
+        f1 = Foo()
+        f1.defaultDict['a'] = 1
+        f1.defaultList.append(0)
+        f2 = Foo()
+        self.assertTrue('a' not in f2.defaultDict)
+        self.assertEqual(len(f2.defaultList), 0)

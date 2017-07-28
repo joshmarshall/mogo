@@ -1,6 +1,7 @@
 """ The basic field attributes. """
 
 import warnings
+from copy import deepcopy
 
 # PyMongo moving libraries around -- eventually this can
 # go away.
@@ -73,7 +74,11 @@ class Field(object):
             return
         if hasattr(self, "default"):
             if not callable(self.default):
-                default_value = self.default
+                if (isinstance(self.default, dict)
+                        or isinstance(self.default, list)):
+                    default_value = deepcopy(self.default)
+                else:
+                    default_value = self.default
             else:
                 default_value = self.default()
             setattr(model, field, default_value)
