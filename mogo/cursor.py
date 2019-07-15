@@ -7,49 +7,77 @@ clean.
 from pymongo.cursor import Cursor as PyCursor
 from pymongo import ASCENDING, DESCENDING
 
-# Shortcuts are better! :)
+from typing import Any, cast, Dict, Generic, Iterator, List, Optional, Tuple
+from typing import Type, TypeVar, TYPE_CHECKING
+
+
 ASC = ASCENDING
 DESC = DESCENDING
 
+_ObjectType = TypeVar("_ObjectType")
+T = TypeVar("T", bound="Model")
 
-class Cursor(PyCursor):
+
+class Cursor(Generic[T]):
     """ A simple wrapper around pymongo's Cursor class. """
 
-    def __init__(self, model, spec=None, *args, **kwargs):
+    _order_entries: List[Tuple[str, int]]
+    _query: Optional[Dict[str, Any]]
+    _model: Type[T]
+    _model_class: "Model[_ObjectType]"
+    _cursor: PyCursor
+
+    def __init__(
+            self,
+            model: Type[T],
+            spec: Optional[Dict[str, Any]] = None,
+            *args: Any,
+            **kwargs: Any) -> None:
         self._order_entries = []
         self._query = spec
         self._model = model
-        PyCursor.__init__(
-            self, model._get_collection(), spec, *args, **kwargs)
+        self._model_class = cast(Type["Model[_ObjectType]"], model)
+        self._cursor = PyCursor(
+            self._model_class._get_collection(), spec, *args, **kwargs)
 
-    def __iter__(self):
+    def __iter__(self) -> 'Cursor[T]':
         return self
 
-    def __next__(self):
-        value = super(Cursor, self).next()
-        return self._model(**value)
+    def __next__(self) -> T:
+        value = self._cursor.next()
+        return cast(T, self._model(**value))
 
-    def next(self):
+    def next(self) -> T:
         # still need this, since pymongo's cursor still implements next()
         # and returns the raw dict.
         return self.__next__()
 
+    def count(self) -> int:
+        collection = self._model_class._get_collection()
+        if hasattr(collection, "count_documents"):
+            return cast(int, collection.count_documents(self._query or {}))
+        # count on a cursor is deprecated, ultimately this will be removed
+        return self._cursor.count()
+
     # convenient because if it quacks like a list...
-    def __len__(self):
+    def __len__(self) -> int:
         return self.count()
 
-    def __getitem__(self, *args, **kwargs):
-        value = PyCursor.__getitem__(self, *args, **kwargs)
+    def __getitem__(self, index: int) -> T:
+        value = self._cursor.__getitem__(index)
         if type(value) == self.__class__:
-            return value
-        return self._model(**value)
+            return cast(T, value)
+        return cast(T, self._model(**value))
 
-    def first(self):
+    def first(self) -> Optional[T]:
         if self.count() == 0:
             return None
-        return self[0]
+        return self.next()
 
-    def order(self, **kwargs):
+    def order(
+            self,
+            **kwargs: int
+            ) -> 'Cursor[T]':
         if len(kwargs) != 1:
             raise ValueError("order() requires one field = ASC or DESC.")
         for key, value in kwargs.items():
@@ -58,18 +86,28 @@ class Cursor(PyCursor):
             self._order_entries.append((key, value))
             # According to the docs, only the LAST .sort() matters to
             # pymongo, so this SHOULD be safe
-            self.sort(self._order_entries)
+            self._cursor.sort(self._order_entries)
         return self
 
-    def update(self, modifier):
+    def update(self, modifier: Dict[str, Any]) -> 'Cursor[T]':
         if self._query is None:
             raise ValueError(
                 "Cannot update on a cursor without a query. If you "
                 "actually want to modify all values on a model, pass "
                 "in an explicit {} to find().")
-        self._model.update(self._query, modifier, multi=True)
+        self._model_class.update(self._query, modifier, multi=True)
         return self
 
-    def change(self, **kwargs):
+    def change(self, **kwargs: Any) -> 'Cursor[T]':
         modifier = {"$set": kwargs}
         return self.update(modifier)
+
+    def distinct(self, key: str) -> Iterator[Any]:
+        return cast(Iterator[Any], self._cursor.distinct(key))
+
+
+if TYPE_CHECKING:
+    from mogo.model import Model  # noqa: F401
+
+
+__all__ = ["Cursor", "ASC", "DESC"]

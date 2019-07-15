@@ -1,1 +1,3 @@
-nose
+pytest
+flake8
+mypy

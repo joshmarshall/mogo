@@ -7,16 +7,10 @@ import unittest
 from mogo import Field, ReferenceField, connect, Model, EnumField
 from mogo.field import EmptyRequiredField
 
-
-try:
-    unicode
-    basestring
-except NameError:
-    unicode = str
-    basestring = str
+from typing import Any, cast, Optional, Sequence
 
 
-class Base(object):
+class Base(Model):
     pass
 
 
@@ -26,39 +20,32 @@ class Sub(Base):
 
 class MogoFieldTests(unittest.TestCase):
 
-    def setUp(self):
+    def setUp(self) -> None:
         super(MogoFieldTests, self).setUp()
         self._mongo_connection = connect("__test_change_field_name")
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         super(MogoFieldTests, self).tearDown()
         self._mongo_connection.drop_database("__test_change_field_name")
         self._mongo_connection.close()
 
-    def test_field(self):
+    def test_field(self) -> None:
 
-        class MockModel(dict):
-            field = Field(unicode)
-            typeless = Field()
-            required = Field(required=True)
-            string = Field(basestring)
+        class MockModel(Model):
+            field = Field[str](str)
+            typeless = Field[Any]()
+            required = Field[Any](required=True)
+            string = Field[str](str)
             reference = ReferenceField(Base)
 
         mock = MockModel()
-        # checks if it is in the model fields (shouldn't be yet)
-        self.assertRaises(AttributeError, getattr, mock, "field")
-
-        # NOW we set up fields.
-        cls_dict = MockModel.__dict__
-        field_names = ["typeless", "required", "field", "string"]
-        MockModel._fields = dict([(cls_dict[v].id, v) for v in field_names])
         self.assertEqual(mock.field, None)
 
-        mock.field = u"testing"
+        mock.field = "testing"
         self.assertEqual(mock.field, "testing")
         self.assertEqual(mock["field"], "testing")
         self.assertRaises(TypeError, setattr, mock, "field", 5)
-        mock.required = u"testing"
+        mock.required = "testing"
         self.assertEqual(mock["required"], "testing")
 
         # Testing type-agnostic fields
@@ -70,7 +57,7 @@ class MogoFieldTests(unittest.TestCase):
         # Testing issubclass comparison for type checking
         # neither of these should raise a type error
         mock = MockModel(string="foobar")
-        mock = MockModel(string=u"foobar")
+        mock = MockModel(string="foobar")
 
         base = Base()
         sub = Sub()
@@ -81,59 +68,64 @@ class MogoFieldTests(unittest.TestCase):
         # testing that the required field is, you know, required.
         self.assertRaises(EmptyRequiredField, getattr, empty_model, "required")
 
-    def test_change_field_name(self):
+    def test_change_field_name(self) -> None:
         """It should allow an override of a field's name."""
         class MockModel(Model):
-            abbreviated = Field(unicode, field_name="abrv")
-            long_name = Field(unicode, field_name="ln", required=True)
-            regular = Field(unicode, required=True)
+            abbreviated = Field[str](str, field_name="abrv")
+            long_name = Field[str](str, field_name="ln", required=True)
+            regular = Field[str](str, required=True)
 
         model = MockModel(
-            abbreviated=u"lorem ipsum", long_name=u"malarky", regular=u"meh.")
+            abbreviated="lorem ipsum", long_name="malarky", regular="meh.")
 
         # Check the model's dictionary.
         self.assertIn("abrv", model)
         # Access by friendly name.
-        self.assertEqual(u"lorem ipsum", model.abbreviated)
+        self.assertEqual("lorem ipsum", model.abbreviated)
         # No access by field_name.
         self.assertRaises(AttributeError, getattr, model, "abrv")
 
         # Test save.
-        model.save(safe=True)
+        model.save()
 
         # Test search.
-        fetched = MockModel.search(abbreviated=u"lorem ipsum")
+        fetched = MockModel.search(abbreviated="lorem ipsum")
         self.assertIsNotNone(fetched)
-        fetched = MockModel.search(long_name=u"malarky")
+        fetched = MockModel.search(long_name="malarky")
         self.assertIsNotNone(fetched)
 
         # Test updates with long names.
-        model.update(abbreviated=u"dolor set")
-        self.assertEqual(u"dolor set", model.abbreviated)
-        fetched = MockModel.search(abbreviated=u"dolor set")
+        model.update(abbreviated="dolor set")
+        self.assertEqual("dolor set", model.abbreviated)
+        fetched = MockModel.search(abbreviated="dolor set")
         self.assertEqual(1, fetched.count())
 
-        model.update(long_name=u"foobar")
-        self.assertEqual(u"foobar", model.long_name)
-        fetched = MockModel.search(long_name=u"foobar")
+        model.update(long_name="foobar")
+        self.assertEqual("foobar", model.long_name)
+        fetched = MockModel.search(long_name="foobar")
         self.assertEqual(1, fetched.count())
 
         # Test updates with short names.
-        MockModel.update({}, {"$set": {"abrv": u"revia"}})
-        fetched = MockModel.find_one({"abrv": "revia"})
-        self.assertEqual(fetched.abbreviated, "revia")
+        MockModel.update({}, {"$set": {"abrv": "revia"}})  # type: ignore
+        fetched_one = MockModel.find_one({"abrv": "revia"})
+        if fetched_one is None:
+            self.fail("Find one result should not be None.")
+        else:
+            self.assertEqual(fetched_one.abbreviated, "revia")
 
         # Test finds with short names.
         fetched = MockModel.find({"ln": "foobar"})
         self.assertEqual(1, fetched.count())
-        fetched = fetched.first()
-        self.assertEqual(u"revia", fetched.abbreviated)
+        fetched_result = fetched.first()
+        if fetched_result is None:
+            self.fail("First result should not be None.")
+        self.assertEqual("revia", fetched_result.abbreviated)
 
         # Test search on regular fields.
-        fetched = MockModel.search(regular=u"meh.")
+        fetched = MockModel.search(regular="meh.")
         self.assertEqual(1, fetched.count())
 
-    def test_enum_field(self):
+    def test_enum_field(self) -> None:
         """ Test the enum field """
         class EnumModel1(Model):
             field = EnumField((1, 3, "what"))
@@ -144,15 +136,16 @@ class MogoFieldTests(unittest.TestCase):
             instance = EnumModel1(field=False)
 
         class EnumModel2(Model):
-            field = EnumField(lambda x: x.__class__.__name__)
+            field = EnumField(
+                lambda x: cast(Sequence[str], x.__class__.__name__))
         EnumModel2(field="EnumModel2")
         with self.assertRaises(ValueError):
             EnumModel1(field="nottheclassname")
 
-    def test_default_field(self):
+    def test_default_field(self) -> None:
         """ Test that the default behavior works like you'd expect. """
         class TestDefaultModel(Model):
-            field = Field()  # i.e. no default value
+            field = Field[Any]()  # i.e. no default value
 
         entry = TestDefaultModel()
         self.assertNotIn("field", entry)
@@ -161,7 +154,7 @@ class MogoFieldTests(unittest.TestCase):
         self.assertNotIn("field", entry)
 
         class TestDefaultModel2(Model):
-            field = Field(default=None)
+            field = Field[Any](default=None)
 
         entry2 = TestDefaultModel2()
         self.assertIn("field", entry2)
@@ -172,13 +165,15 @@ class MogoFieldTests(unittest.TestCase):
         self.assertEqual("foobar", entry3.field)
         self.assertEqual("foobar", entry3["field"])
 
-    def test_field_coercion(self):
+    def test_field_coercion(self) -> None:
 
-        class FloatField(Field):
+        class FloatField(Field[float]):
             value_type = float
 
-            def _coerce_callback(self, value):
-                return float(value)
+            def _coerce_callback(self, value: Optional[Any]) -> float:
+                if value is not None:
+                    return float(value)
+                return 0.0
 
         class TestCoerceModel(Model):
             percent = FloatField()
@@ -190,7 +185,8 @@ class MogoFieldTests(unittest.TestCase):
         self.assertEqual(float, type(model["percent"]))
 
         class TestCoerceModel2(Model):
-            percent = Field(float, coerce_callback=lambda x: int(x))
+            percent = Field[float](
+                float, coerce_callback=lambda x: int(x))
 
         with self.assertRaises(TypeError):
-            model = TestCoerceModel2(percent=2)
+            TestCoerceModel2(percent=2)

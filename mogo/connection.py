@@ -1,12 +1,13 @@
 """ The wrapper for pymongo's connection stuff. """
 
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
-
+from urllib.parse import urlparse
 from pymongo import MongoClient
+from pymongo.collection import Collection
+from pymongo.database import Database
 from pymongo.errors import ConnectionFailure
+
+from types import TracebackType
+from typing import Any, Optional, Type
 
 
 class Connection(object):
@@ -15,19 +16,22 @@ class Connection(object):
     a few shortcuts.
     """
 
-    _instance = None
-    connection = None
-    _database = None
+    _instance: Optional['Connection'] = None
+    _database: Optional[str] = None
+    connection: Optional[MongoClient] = None
 
     @classmethod
-    def instance(cls):
+    def instance(cls) -> "Connection":
         """ Retrieves the shared connection. """
         if not cls._instance:
             cls._instance = Connection()
         return cls._instance
 
     @classmethod
-    def connect(cls, database=None, uri="mongodb://localhost:27017", **kwargs):
+    def connect(
+            cls, database: Optional[str] = None,
+            uri: str = "mongodb://localhost:27017",
+            **kwargs: Any) -> MongoClient:
         """
         Wraps a pymongo connection.
         TODO: Allow some of the URI stuff.
@@ -44,7 +48,7 @@ class Connection(object):
         conn.connection = MongoClient(uri, **kwargs)
         return conn.connection
 
-    def get_database(self, database=None):
+    def get_database(self, database: Optional[str] = None) -> Database:
         """ Retrieves a database from an existing connection. """
         if not self.connection:
             raise ConnectionFailure('No connection')
@@ -54,7 +58,10 @@ class Connection(object):
             database = self._database
         return self.connection[database]
 
-    def get_collection(self, collection, database=None):
+    def get_collection(
+            self,
+            collection: str,
+            database: Optional[str] = None) -> Collection:
         """ Retrieve a collection from an existing connection. """
         return self.get_database(database=database)[collection]
 
@@ -62,38 +69,49 @@ class Connection(object):
 class Session(object):
     """ This class just wraps a connection instance """
 
-    def __init__(self, database, *args, **kwargs):
+    connection: Optional[Connection]
+    database: Optional[str]
+    args: Any
+    kwargs: Any
+
+    def __init__(self, database: str, *args: Any, **kwargs: Any) -> None:
         """ Stores a connection instance """
         self.connection = None
         self.database = database
         self.args = args
         self.kwargs = kwargs
 
-    def connect(self):
+    def connect(self) -> None:
         """ Connect to MongoDB """
         connection = Connection()
         connection._database = self.database
         connection.connection = MongoClient(*self.args, **self.kwargs)
         self.connection = connection
 
-    def disconnect(self):
+    def disconnect(self) -> None:
         # PyMongo removed the disconnect keyword, close() is now used.
         self.close()
 
-    def close(self):
-        self.connection.connection.close()
+    def close(self) -> None:
+        if self.connection is not None and \
+                self.connection.connection is not None:
+            self.connection.connection.close()
 
-    def __enter__(self):
+    def __enter__(self) -> 'Session':
         """ Open the connection """
         self.connect()
         return self
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(
+            self,
+            exc_type: Optional[Type[Exception]],
+            exc_value: Optional[Exception],
+            traceback: Optional[TracebackType]) -> None:
         """ Close the connection """
         self.disconnect()
 
 
-def connect(*args, **kwargs):
+def connect(*args: Any, **kwargs: Any) -> MongoClient:
     """
     Initializes a connection and the database. It returns
     the pymongo connection object so that end_request, etc.
@@ -102,8 +120,11 @@ def connect(*args, **kwargs):
     return Connection.connect(*args, **kwargs)
 
 
-def session(database, *args, **kwargs):
+def session(database: str, *args: Any, **kwargs: Any) -> Session:
     """
     Returns a session object to be used with the `with` statement.
     """
     return Session(database, *args, **kwargs)
+
+
+__all__ = ["connect", "session"]
