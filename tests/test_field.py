@@ -95,12 +95,12 @@ class MogoFieldTests(unittest.TestCase):
         self.assertIsNotNone(fetched)
 
         # Test updates with long names.
-        model.update(abbreviated="dolor set")
+        model.update(abbreviated="dolor set")  # type: ignore
         self.assertEqual("dolor set", model.abbreviated)
         fetched = MockModel.search(abbreviated="dolor set")
         self.assertEqual(1, fetched.count())
 
-        model.update(long_name="foobar")
+        model.update(long_name="foobar")  # type: ignore
         self.assertEqual("foobar", model.long_name)
         fetched = MockModel.search(long_name="foobar")
         self.assertEqual(1, fetched.count())

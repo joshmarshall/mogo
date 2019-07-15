@@ -378,8 +378,9 @@ class TestMogoGeneralUsage(unittest.TestCase):
             foo = Mod(val=i, mod=i % 2)
             foo.save()
         foo = self.assert_not_none(Mod.find_one({"mod": 1}))
-        self.assertRaises(TypeError, foo.update, mod="testing")
-        foo.update(mod=5)
+        with self.assertRaises(TypeError):
+            foo.update(mod="testing")  # type: ignore
+        foo.update(mod=5)  # type: ignore
         self.assertEqual(foo.mod, 5)
         foo2 = self.assert_not_none(Mod.grab(foo.id))
         self.assertEqual(foo2.mod, 5)

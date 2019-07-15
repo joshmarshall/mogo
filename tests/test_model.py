@@ -133,7 +133,8 @@ class TestModel(unittest.TestCase):
     def test_model_rejects_unknown_field_values_by_default(self) -> None:
         class Testing(Model):
             pass
-        self.assertRaises(UnknownField, Testing, foo="bar")
+        with self.assertRaises(UnknownField):
+            Testing(foo="bar")
 
     def test_default_field_value_sets_default_on_construction(self) -> None:
         foo = Foo()
@@ -142,9 +143,12 @@ class TestModel(unittest.TestCase):
 
     def test_required_fields_raise_when_values_missing(self) -> None:
         foo = Foo()
-        self.assertRaises(EmptyRequiredField, foo.save)
-        self.assertRaises(EmptyRequiredField, getattr, foo, "required")
-        self.assertRaises(InvalidUpdateCall, foo.update, foo="bar")
+        with self.assertRaises(EmptyRequiredField):
+            foo.save()
+        with self.assertRaises(EmptyRequiredField):
+            getattr(foo, "required")
+        with self.assertRaises(InvalidUpdateCall):
+            foo.update(foo="bar")  # type: ignore
 
     def test_model_null_equality_comparison_is_false(self) -> None:
         foo = Foo()
