@@ -2,7 +2,7 @@
 
 from bson.dbref import DBRef
 
-from typing import Any, Callable, cast, Dict, Generic, Optional
+from typing import Any, Callable, cast, Generic, Optional
 from typing import Sequence, Type, TypeVar, TYPE_CHECKING, Union
 
 
@@ -94,7 +94,7 @@ class Field(Generic[T]):
         """ Try to retrieve field name from instance """
         if self._field_name:
             return self._field_name
-        return cast(Dict[int, str], model_instance._get_fields())[self.id]
+        return model_instance._get_fields()[self.id]
 
     def _get_value(self, instance: "Model") -> Optional[T]:
         """ Retrieve the value from the instance """
@@ -183,8 +183,8 @@ class Field(Generic[T]):
 class ReferenceField(Field["Model"]):
     """ Simply holds information about the reference model. """
 
-    def __init__(self, model: "Model", **kwargs: Any) -> None:
-        super(ReferenceField, self).__init__(value_type=model, **kwargs)
+    def __init__(self, model: Type["Model"], **kwargs: Any) -> None:
+        super().__init__(value_type=model, **kwargs)
         self.model = model
 
     def _set_callback(
@@ -202,10 +202,10 @@ class ReferenceField(Field["Model"]):
             value: Optional[DBRef]) -> \
             Optional["Model"]:
         """ Retrieves the id, then retrieves the model from the db """
-        if value:
+        if value is not None:
             # Should be a DBRef
             return self.model.find_one({"_id": value.id})
-        return value
+        return None
 
 
 class ConstantField(Field[Any]):

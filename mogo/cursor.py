@@ -4,8 +4,8 @@ that a result dict is wrapped in a Model to keep everything
 clean.
 """
 
-from pymongo.cursor import Cursor as PyCursor
 from pymongo import ASCENDING, DESCENDING
+from pymongo.cursor import Cursor as PyCursor
 
 from typing import Any, cast, Dict, Generic, Iterator, List, Optional, Tuple
 from typing import Type, TypeVar, TYPE_CHECKING
@@ -14,7 +14,6 @@ from typing import Type, TypeVar, TYPE_CHECKING
 ASC = ASCENDING
 DESC = DESCENDING
 
-_ObjectType = TypeVar("_ObjectType")
 T = TypeVar("T", bound="Model")
 
 
@@ -24,7 +23,7 @@ class Cursor(Generic[T]):
     _order_entries: List[Tuple[str, int]]
     _query: Optional[Dict[str, Any]]
     _model: Type[T]
-    _model_class: "Model[_ObjectType]"
+    _model_class: Type[T]
     _cursor: PyCursor
 
     def __init__(
@@ -36,7 +35,7 @@ class Cursor(Generic[T]):
         self._order_entries = []
         self._query = spec
         self._model = model
-        self._model_class = cast(Type["Model[_ObjectType]"], model)
+        self._model_class = model
         self._cursor = PyCursor(
             self._model_class._get_collection(), spec, *args, **kwargs)
 
@@ -45,7 +44,7 @@ class Cursor(Generic[T]):
 
     def __next__(self) -> T:
         value = self._cursor.next()
-        return cast(T, self._model(**value))
+        return self._model(**value)
 
     def next(self) -> T:
         # still need this, since pymongo's cursor still implements next()
@@ -55,7 +54,7 @@ class Cursor(Generic[T]):
     def count(self) -> int:
         collection = self._model_class._get_collection()
         if hasattr(collection, "count_documents"):
-            return cast(int, collection.count_documents(self._query or {}))
+            return collection.count_documents(self._query or {})
         # count on a cursor is deprecated, ultimately this will be removed
         return self._cursor.count()
 
@@ -67,7 +66,7 @@ class Cursor(Generic[T]):
         value = self._cursor.__getitem__(index)
         if type(value) == self.__class__:
             return cast(T, value)
-        return cast(T, self._model(**value))
+        return self._model(**value)
 
     def first(self) -> Optional[T]:
         if self.count() == 0:
@@ -95,7 +94,8 @@ class Cursor(Generic[T]):
                 "Cannot update on a cursor without a query. If you "
                 "actually want to modify all values on a model, pass "
                 "in an explicit {} to find().")
-        self._model_class.update(self._query, modifier, multi=True)
+        self._model_class.update(  # type: ignore
+            self._query, modifier, multi=True)
         return self
 
     def change(self, **kwargs: Any) -> 'Cursor[T]':
