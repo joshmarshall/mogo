@@ -107,7 +107,7 @@ class SportsCar(Car):
 class Convertible(SportsCar):
     """ New methods """
 
-    _top_down: bool = False
+    _top_down = False  # type: bool
 
     type = Field[str](str, default="convertible")
 
@@ -363,9 +363,9 @@ class TestMogoGeneralUsage(unittest.TestCase):
         for i in range(100):
             foo = Mod(val=i, mod=i % 2)
             foo.save()
-        Mod.update({"mod": 1}, {"$set": {"mod": 0}})  # type: ignore
+        Mod.update({"mod": 1}, {"$set": {"mod": 0}})
         self.assertEqual(Mod.search(mod=0).count(), 51)
-        Mod.update(  # type: ignore
+        Mod.update(
             {"mod": 1}, {"$set": {"mod": 0}}, multi=True)
         self.assertEqual(Mod.search(mod=0).count(), 100)
 
@@ -379,8 +379,8 @@ class TestMogoGeneralUsage(unittest.TestCase):
             foo.save()
         foo = self.assert_not_none(Mod.find_one({"mod": 1}))
         with self.assertRaises(TypeError):
-            foo.update(mod="testing")  # type: ignore
-        foo.update(mod=5)  # type: ignore
+            foo.update(mod="testing")
+        foo.update(mod=5)
         self.assertEqual(foo.mod, 5)
         foo2 = self.assert_not_none(Mod.grab(foo.id))
         self.assertEqual(foo2.mod, 5)

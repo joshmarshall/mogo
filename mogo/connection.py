@@ -16,9 +16,9 @@ class Connection(object):
     a few shortcuts.
     """
 
-    _instance: Optional['Connection'] = None
-    _database: Optional[str] = None
-    connection: Optional[MongoClient] = None
+    _instance = None  # type: Optional['Connection']
+    _database = None  # type: Optional[str]
+    connection = None  # type: Optional[MongoClient]
 
     @classmethod
     def instance(cls) -> "Connection":
@@ -69,10 +69,10 @@ class Connection(object):
 class Session(object):
     """ This class just wraps a connection instance """
 
-    connection: Optional[Connection]
-    database: Optional[str]
-    args: Any
-    kwargs: Any
+    connection = None  # type: Optional[Connection]
+    database = None  # type: Optional[str]
+    args = None  # type: Any
+    kwargs = None  # type: Any
 
     def __init__(self, database: str, *args: Any, **kwargs: Any) -> None:
         """ Stores a connection instance """

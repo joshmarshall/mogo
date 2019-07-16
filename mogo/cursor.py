@@ -1,8 +1,4 @@
-"""
-Really, really basic around pymongo.Cursor. Just makes sure
-that a result dict is wrapped in a Model to keep everything
-clean.
-"""
+from mogo.helpers import check_none
 
 from pymongo import ASCENDING, DESCENDING
 from pymongo.cursor import Cursor as PyCursor
@@ -20,11 +16,11 @@ T = TypeVar("T", bound="Model")
 class Cursor(Generic[T]):
     """ A simple wrapper around pymongo's Cursor class. """
 
-    _order_entries: List[Tuple[str, int]]
-    _query: Optional[Dict[str, Any]]
-    _model: Type[T]
-    _model_class: Type[T]
-    _cursor: PyCursor
+    _order_entries = []  # type: List[Tuple[str, int]]
+    _query = None  # type: Optional[Dict[str, Any]]
+    _model = None  # type: Optional[Type[T]]
+    _model_class = None  # type: Optional[Type[T]]
+    _cursor = None  # type: Optional[PyCursor]
 
     def __init__(
             self,
@@ -43,8 +39,8 @@ class Cursor(Generic[T]):
         return self
 
     def __next__(self) -> T:
-        value = self._cursor.next()
-        return self._model(**value)
+        value = check_none(self._cursor).next()
+        return check_none(self._model)(**value)
 
     def next(self) -> T:
         # still need this, since pymongo's cursor still implements next()
@@ -52,21 +48,21 @@ class Cursor(Generic[T]):
         return self.__next__()
 
     def count(self) -> int:
-        collection = self._model_class._get_collection()
+        collection = check_none(self._model_class)._get_collection()
         if hasattr(collection, "count_documents"):
             return collection.count_documents(self._query or {})
         # count on a cursor is deprecated, ultimately this will be removed
-        return self._cursor.count()
+        return check_none(self._cursor).count()
 
     # convenient because if it quacks like a list...
     def __len__(self) -> int:
         return self.count()
 
     def __getitem__(self, index: int) -> T:
-        value = self._cursor.__getitem__(index)
+        value = check_none(self._cursor).__getitem__(index)
         if type(value) == self.__class__:
             return cast(T, value)
-        return self._model(**value)
+        return check_none(self._model)(**value)
 
     def first(self) -> Optional[T]:
         if self.count() == 0:
@@ -85,7 +81,7 @@ class Cursor(Generic[T]):
             self._order_entries.append((key, value))
             # According to the docs, only the LAST .sort() matters to
             # pymongo, so this SHOULD be safe
-            self._cursor.sort(self._order_entries)
+            check_none(self._cursor).sort(self._order_entries)
         return self
 
     def update(self, modifier: Dict[str, Any]) -> 'Cursor[T]':
@@ -94,7 +90,7 @@ class Cursor(Generic[T]):
                 "Cannot update on a cursor without a query. If you "
                 "actually want to modify all values on a model, pass "
                 "in an explicit {} to find().")
-        self._model_class.update(  # type: ignore
+        check_none(self._model_class).update(
             self._query, modifier, multi=True)
         return self
 
@@ -103,7 +99,7 @@ class Cursor(Generic[T]):
         return self.update(modifier)
 
     def distinct(self, key: str) -> Iterator[Any]:
-        return cast(Iterator[Any], self._cursor.distinct(key))
+        return cast(Iterator[Any], check_none(self._cursor).distinct(key))
 
 
 if TYPE_CHECKING:

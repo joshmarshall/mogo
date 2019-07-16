@@ -95,18 +95,18 @@ class MogoFieldTests(unittest.TestCase):
         self.assertIsNotNone(fetched)
 
         # Test updates with long names.
-        model.update(abbreviated="dolor set")  # type: ignore
+        model.update(abbreviated="dolor set")
         self.assertEqual("dolor set", model.abbreviated)
         fetched = MockModel.search(abbreviated="dolor set")
         self.assertEqual(1, fetched.count())
 
-        model.update(long_name="foobar")  # type: ignore
+        model.update(long_name="foobar")
         self.assertEqual("foobar", model.long_name)
         fetched = MockModel.search(long_name="foobar")
         self.assertEqual(1, fetched.count())
 
         # Test updates with short names.
-        MockModel.update({}, {"$set": {"abrv": "revia"}})  # type: ignore
+        MockModel.update({}, {"$set": {"abrv": "revia"}})
         fetched_one = MockModel.find_one({"abrv": "revia"})
         if fetched_one is None:
             self.fail("Find one result should not be None.")

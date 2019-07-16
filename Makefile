@@ -1,6 +1,6 @@
 PYTHON_LINTER := flake8
 PYTHON_TEST_RUNNER := pytest
-PYTHON_TYPE_CHECK := mypy --strict
+PYTHON_TYPE_CHECK := mypy --strict --no-incremental
 
 
 INPUT_FILES := $(wildcard ./*.py ./**/*.py)

@@ -40,6 +40,7 @@ from mogo.connection import Connection, Session
 from mogo.decorators import notinstancemethod
 from mogo.cursor import Cursor
 from mogo.field import Field, EmptyRequiredField
+from mogo.helpers import check_none
 
 from bson.dbref import DBRef
 from bson.objectid import ObjectId
@@ -96,13 +97,13 @@ class NewModelClass(type):
             attributes: Dict[str, Any]) -> Type[M]:
         # Emptying fields by default
         attributes["__fields"] = {}
-        new_model: Type[M] = cast(
+        new_model = cast(
             Type[M],
-            super().__new__(cls, name, bases, attributes))
+            super().__new__(cls, name, bases, attributes))  # type: Type[M]
         # pre-populate fields
         new_model._update_fields()
-        if hasattr(new_model, "_child_models"):
-            # Resetting any model register for PolyModels -- better way?
+        if hasattr(new_model, "_child_models") and \
+                new_model._child_models is not None:
             new_model._child_models = {}
         return new_model
 
@@ -114,7 +115,7 @@ class NewModelClass(type):
             cast(Type[Model], cls)._update_fields()
 
 
-class Model(Dict[str, Any], metaclass=NewModelClass):
+class Model(metaclass=NewModelClass):
     """
     Subclass this class to create your documents. Basic usage
     is really simple:
@@ -128,22 +129,51 @@ class Model(Dict[str, Any], metaclass=NewModelClass):
         print result.password
     """
 
-    _id_field: str = "_id"
-    _id_type: Any = ObjectId
-    _name: Optional[str] = None
-    _collection: Optional[Collection] = None
-    _child_models: Optional[Dict[str, Type["PolyModel"]]] = None
-    _init_okay: bool = False
-    __fields: Dict[int, str]
+    _id_field = "_id"  # type: str
+    _id_type = ObjectId  # type: Any
+    _name = None  # type: Optional[str]
+    _pymongo_data = None  # type: Optional[Dict[str, Any]]
+    _collection = None  # type: Optional[Collection]
+    _child_models = None  # type: Optional[Dict[str, Type["PolyModel"]]]
+    _init_okay = False  # type: bool
+    __fields = None  # type: Optional[Dict[int, str]]
 
-    AUTO_CREATE_FIELDS: bool
+    AUTO_CREATE_FIELDS = None  # type: Optional[bool]
 
     # DEPRECATED
     @classmethod
     def new(cls: Type[M], **kwargs: Any) -> M:
         """ Overwrite in each model for custom instantiaion logic """
-        instance: M = cls(**kwargs)
+        instance = cls(**kwargs)  # type: M
         return instance
+
+    # Dict-compatibility methods
+
+    def get(self: M, key: str, default: Optional[Any] = None) -> Optional[Any]:
+        return self._pymongo_data.get(key, default)
+
+    def copy(self: M) -> Dict[str, Any]:
+        return self._pymongo_data.copy()
+
+    def __setitem__(self: M, key: str, value: Any) -> None:
+        self._pymongo_data.__setitem__(key, value)
+
+    def __getitem__(self: M, key: str) -> Any:
+        return self._pymongo_data.__getitem__(key)
+
+    def __contains__(self: M, item: str) -> bool:
+        return self._pymongo_data.__contains__(item)
+
+    def __hash__(self: M) -> int:
+        return self._pymongo_data.__hash__()
+
+    def __len__(self: M) -> int:
+        return self._pymongo_data.__len__()
+
+    def __iter__(self: M) -> Iterator[str]:
+        return self._pymongo_data.__iter__()
+
+    # Model methods
 
     @classmethod
     def use(cls: Type[M], session: Session) -> Type[M]:
@@ -157,17 +187,16 @@ class Model(Dict[str, Any], metaclass=NewModelClass):
         connection = session.connection
         if connection is None:
             raise Exception("No connection for session.")
-        collection: Collection = connection.get_collection(
-            Wrapped._get_name())
+        collection = connection.get_collection(
+            Wrapped._get_name())  # type: Collection
         Wrapped._collection = collection
         return Wrapped
 
     @classmethod
     def create(cls: Type[M], **kwargs: Any) -> M:
         """ Create a new model and save it. """
-        model: M
         if hasattr(cls, "new"):
-            model = cls.new(**kwargs)
+            model = cls.new(**kwargs)  # type: M
         else:
             model = cls(**kwargs)
         model.save()
@@ -176,6 +205,7 @@ class Model(Dict[str, Any], metaclass=NewModelClass):
     def __init__(self: M, **kwargs: Any) -> None:
         """ Creates an instance of the model, without saving it. """
         super().__init__()
+        self._pymongo_data = {}
         # compute once
         create_fields = self._auto_create_fields
         is_new_instance = self._id_field not in kwargs
@@ -201,11 +231,11 @@ class Model(Dict[str, Any], metaclass=NewModelClass):
 
     @classmethod
     def _get_fields(cls: Type[M]) -> Dict[int, str]:
-        return cls.__fields
+        return check_none(cls.__fields)
 
     @property
     def _auto_create_fields(self: M) -> bool:
-        if hasattr(self, "AUTO_CREATE_FIELDS"):
+        if self.AUTO_CREATE_FIELDS is not None:
             return self.AUTO_CREATE_FIELDS
         return mogo.AUTO_CREATE_FIELDS
 
@@ -253,7 +283,7 @@ class Model(Dict[str, Any], metaclass=NewModelClass):
         if object_id is None:
             result = coll.insert_one(self.copy())
             object_id = result.inserted_id
-            super(Model, self).__setitem__(self._id_field, object_id)
+            self.__setitem__(self._id_field, object_id)
         else:
             spec = {self._id_field: object_id}
             coll.update_one(spec, {"$set": self.copy()})
@@ -266,7 +296,7 @@ class Model(Dict[str, Any], metaclass=NewModelClass):
         if "safe" in kwargs:
             warn_about_keyword_deprecation("safe")
             del kwargs["safe"]
-        coll: Collection = cls._get_collection()
+        coll = cls._get_collection()  # type: Collection
         if "multi" in kwargs and kwargs.pop("multi"):
             return coll.update_many(*args, **kwargs)
         return coll.update_one(*args, **kwargs)
@@ -303,11 +333,11 @@ class Model(Dict[str, Any], metaclass=NewModelClass):
         logging.debug("Setting body (%s)", body)
         return coll.update_one(spec, {"$set": body})
 
-    update = BiContextualUpdate()  # type: ignore
+    update = BiContextualUpdate()
 
     def _check_required(self: M, *field_args: str) -> None:
         """ Ensures that all required fields are set. """
-        field_names: Sequence[str] = list(field_args)
+        field_names = list(field_args)  # type: Sequence[str]
         if not field_names:
             field_names = list(self._fields.values())
         for field_name in field_names:
@@ -388,9 +418,10 @@ class Model(Dict[str, Any], metaclass=NewModelClass):
         if "timeout" in kwargs:
             warn_about_keyword_deprecation("timeout")
             del kwargs["timeout"]
-        coll: Collection = cls._get_collection()
-        find_result: Optional[Dict[str, Any]] = coll.find_one(*args, **kwargs)
-        result: Optional[M] = None
+        coll = cls._get_collection()  # type: Collection
+        find_result = coll.find_one(
+            *args, **kwargs)  # type: Optional[Dict[str, Any]]
+        result = None  # type: Optional[M]
         if find_result is not None:
             result = cls(**find_result)
         return result
@@ -452,8 +483,8 @@ class Model(Dict[str, Any], metaclass=NewModelClass):
     @classmethod
     def search_or_create(cls: Type[M], **kwargs: Any) -> M:
         "search for an instance that matches kwargs or make one with __init__"
-        cursor: Cursor[M] = cls.search(**kwargs)
-        obj: Optional[M] = cursor.first()
+        cursor = cls.search(**kwargs)  # type: Cursor[M]
+        obj = cursor.first()  # type: Optional[M]
         if obj is not None:
             return obj
         return cls.create(**kwargs)
@@ -461,7 +492,7 @@ class Model(Dict[str, Any], metaclass=NewModelClass):
     @classmethod
     def first(cls: Type[M], **kwargs: Any) -> Optional[M]:
         """ Helper for returning Blah.search(foo=bar).first(). """
-        result: Cursor[M] = cls.search(**kwargs)
+        result = cls.search(**kwargs)  # type: Cursor[M]
         return result.first()
 
     @classmethod
@@ -498,7 +529,7 @@ class Model(Dict[str, Any], metaclass=NewModelClass):
         """ Connects and caches the collection connection object. """
         if not cls._collection:
             conn = Connection.instance()
-            coll: Collection = conn.get_collection(cls._get_name())
+            coll = conn.get_collection(cls._get_name())  # type: Collection
             cls._collection = coll
         return cls._collection
 
@@ -569,7 +600,8 @@ class Model(Dict[str, Any], metaclass=NewModelClass):
 class PolyModel(Model):
     """ A base class for inherited models """
 
-    _polyinfo: Dict[str, Union[str, Type["PolyModel"]]]
+    _polyinfo = None  \
+        # type: Optional[Dict[str, Union[str, Type["PolyModel"]]]]
 
     def __new__(cls: Type[P], **kwargs: Any) -> P:
         """ Creates a model of the appropriate type """
@@ -582,24 +614,27 @@ class PolyModel(Model):
                 key = key_field._get_default()
             if key in cls._child_models:
                 create_class = cast(Type[P], cls._child_models[key])
-        return super().__new__(create_class, **kwargs)
+        return cast(P, super().__new__(create_class))
 
     @classmethod
     def get_child_key(cls: Type[P]) -> str:
         raise NotImplementedError("`get_child_key() -> str` not implemented.")
 
-    @typing.overload  # noqa: F811
-    @classmethod
-    def register(cls: Type[P], name: Type[P]) -> Type[P]: ...
+    # the following need double noqa: comments because Flake8 performs the
+    # check at different levels depending on the version of Python...
 
     @typing.overload  # noqa: F811
     @classmethod
-    def register(
+    def register(cls: Type[P], name: Type[P]) -> Type[P]: ...  # noqa: F811
+
+    @typing.overload  # noqa: F811
+    @classmethod
+    def register(  # noqa: F811
         cls: Type[P], name: str) -> \
         Callable[[Type[P]], Type[P]]: ...
 
     @classmethod  # noqa: F811
-    def register(
+    def register(  # noqa: F811
             cls: Type[P],
             name: Union[str, Type[P]]) -> \
             Union[
@@ -626,11 +661,9 @@ class PolyModel(Model):
             cls: Type[P], spec: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         """ Update the search specification on child polymodels. """
         spec = spec or {}
-        if hasattr(cls, "_polyinfo"):
-            polyinfo = cast(
-                Dict[str, Union[str, P]], cls._polyinfo)
-            name = polyinfo["name"]
-            polyclass = cast(P, polyinfo["parent"])
+        if cls._polyinfo is not None:
+            name = cls._polyinfo["name"]
+            polyclass = cast(P, cls._polyinfo["parent"])
             spec.setdefault(polyclass.get_child_key(), name)
         return spec
 
@@ -642,7 +675,7 @@ class PolyModel(Model):
             **kwargs: Any) -> Cursor[P]:
         """ Add key to search params """
         spec = cls._update_search_spec(spec)
-        return super(PolyModel, cls).find(spec, *args, **kwargs)
+        return super().find(spec, *args, **kwargs)
 
     @classmethod
     def find_one(
@@ -652,7 +685,7 @@ class PolyModel(Model):
             **kwargs: Any) -> Optional[P]:
         """ Add key to search params for single result """
         spec = cls._update_search_spec(spec)
-        return super(PolyModel, cls).find_one(spec, *args, **kwargs)
+        return super().find_one(spec, *args, **kwargs)
 
     @notinstancemethod
     @classmethod

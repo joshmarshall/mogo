@@ -148,7 +148,7 @@ class TestModel(unittest.TestCase):
         with self.assertRaises(EmptyRequiredField):
             getattr(foo, "required")
         with self.assertRaises(InvalidUpdateCall):
-            foo.update(foo="bar")  # type: ignore
+            foo.update(foo="bar")
 
     def test_model_null_equality_comparison_is_false(self) -> None:
         foo = Foo()
@@ -238,10 +238,10 @@ class TestModel(unittest.TestCase):
         Infant.create(age=5)
         Infant.create(age=10)
         Infant.create(age=15)
-        result: Sequence[Dict[str, Any]] = Infant.aggregate([
+        result = Infant.aggregate([
             {"$match": {"age": {"$lte": 10}}},
             {"$group": {"_id": "$role", "total_age": {"$sum": "$age"}}}
-        ])
+        ])  # type: Sequence[Dict[str, Any]]
         self.assertEqual([{"_id": "infant", "total_age": 15}], list(result))
 
     def test_parent_model_aggregates_across_submodels(self) -> None:
@@ -249,9 +249,9 @@ class TestModel(unittest.TestCase):
         Adult.create(age=50)
         Infant.create(age=5)
         Infant.create(age=1)
-        result: Sequence[Dict[str, Any]] = Person.aggregate([
+        result = Person.aggregate([
             {"$group": {"_id": "$role", "total_age": {"$sum": "$age"}}}
-        ])
+        ])  # type: Sequence[Dict[str, Any]]
         self.assertCountEqual(
             [
                 {"_id": "adult", "total_age": 74},
@@ -273,7 +273,7 @@ class TestModel(unittest.TestCase):
                     reduce="function (obj, prev) { prev.age += obj.age; }",
                     initial={"age": 0})
 
-    def test_find_one_and_find_raise_warning_with_timeoute(self) -> None:
+    def test_find_one_and_find_raise_warning_with_timeout(self) -> None:
         with warnings.catch_warnings():
             warnings.simplefilter("error")
             with self.assertRaises(DeprecationWarning):

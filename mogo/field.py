@@ -28,7 +28,7 @@ class _NoDefault(object):
     pass
 
 
-NO_DEFAULT: _NoDefault = _NoDefault()
+NO_DEFAULT = _NoDefault()  # type: _NoDefault
 
 
 _DefaultOptions = Union[_NoDefault, _DefaultCallback[T], T]
@@ -42,15 +42,14 @@ class Field(Generic[T]):
     application-friendly values.
     """
 
-    value_type: Optional[Type[T]] = None
-    id: int
-    required: bool
-    _field_name: Optional[str]
-    __set_callback: Optional[_SetCallback[T]]
-    __get_callback: Optional[_GetCallback[T]]
-    __coerce_callback: Optional[_CoerceCallback[T]]
-    __default: Optional[_DefaultOptions[T]]
-    __required: bool
+    value_type = None  # type: Optional[Type[T]]
+    id = 0  # type: int
+    _field_name = None  # type: Optional[str]
+    __set_callback = None  # type: Optional[_SetCallback[T]]
+    __get_callback = None  # type: Optional[_GetCallback[T]]
+    __coerce_callback = None  # type: Optional[_CoerceCallback[T]]
+    __default = None  # type: Optional[_DefaultOptions[T]]
+    __required = False  # type: bool
 
     def __init__(
             self,
@@ -235,7 +234,7 @@ class EnumField(Field[S]):
 
     """
 
-    iterable: _EnumOptions[S]
+    iterable = []  # type: _EnumOptions[S]
 
     def __init__(self, iterable: _EnumOptions[S], **kwargs: Any) -> None:
         super(EnumField, self).__init__(**kwargs)
@@ -245,7 +244,7 @@ class EnumField(Field[S]):
             self, instance: "Model",
             value: Optional[S]) -> Optional[S]:
         """ Checks for value in iterable. """
-        accepted_values: Sequence[S]
+        accepted_values = []  # type: Sequence[S]
         if callable(self.iterable):
             accepted_values = self.iterable(instance)
         else:
