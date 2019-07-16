@@ -102,8 +102,7 @@ class NewModelClass(type):
             super().__new__(cls, name, bases, attributes))  # type: Type[M]
         # pre-populate fields
         new_model._update_fields()
-        if hasattr(new_model, "_child_models") and \
-                new_model._child_models is not None:
+        if hasattr(new_model, "_child_models"):
             new_model._child_models = {}
         return new_model
 
@@ -150,28 +149,28 @@ class Model(metaclass=NewModelClass):
     # Dict-compatibility methods
 
     def get(self: M, key: str, default: Optional[Any] = None) -> Optional[Any]:
-        return self._pymongo_data.get(key, default)
+        return check_none(self._pymongo_data).get(key, default)
 
     def copy(self: M) -> Dict[str, Any]:
-        return self._pymongo_data.copy()
+        return check_none(self._pymongo_data).copy()
 
     def __setitem__(self: M, key: str, value: Any) -> None:
-        self._pymongo_data.__setitem__(key, value)
+        check_none(self._pymongo_data).__setitem__(key, value)
 
     def __getitem__(self: M, key: str) -> Any:
-        return self._pymongo_data.__getitem__(key)
+        return check_none(self._pymongo_data).__getitem__(key)
 
     def __contains__(self: M, item: str) -> bool:
-        return self._pymongo_data.__contains__(item)
+        return check_none(self._pymongo_data).__contains__(item)
 
     def __hash__(self: M) -> int:
-        return self._pymongo_data.__hash__()
+        return check_none(self._pymongo_data).__hash__()
 
     def __len__(self: M) -> int:
-        return self._pymongo_data.__len__()
+        return check_none(self._pymongo_data).__len__()
 
     def __iter__(self: M) -> Iterator[str]:
-        return self._pymongo_data.__iter__()
+        return check_none(self._pymongo_data).__iter__()
 
     # Model methods
 
