@@ -154,23 +154,23 @@ class TestModel(unittest.TestCase):
         foo = Foo()
         self.assertIsNotNone(foo)
 
-    def test_null_reference_(self) -> None:
+    def test_null_reference_field_value_is_supported(self) -> None:
         foo = Foo()
         foo.reference = None
         self.assertEqual(foo.reference, None)
 
-    def test_repr(self) -> None:
+    def test_string_representation_calls__unicode__method(self) -> None:
         foo = Foo()
         foo["_id"] = 5
         self.assertEqual(str(foo), "<MogoModel:foo id:5>")
 
-    def test_reference_subclass(self) -> None:
+    def test_reference_field_accepts_instance_of_referred_model(self) -> None:
         foo = Foo()
         child_ref = ChildRef(_id="testing")  # hardcoding id
         foo.reference = child_ref
         self.assertEqual(foo["reference"].id, child_ref.id)
 
-    def test_id_access_methods_return_id(self) -> None:
+    def test_id_access_methods_return_id_value(self) -> None:
         foo = Foo(_id="whoop")
         self.assertEqual(foo.id, "whoop")
         self.assertEqual(foo._id, "whoop")

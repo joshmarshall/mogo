@@ -29,7 +29,7 @@ class MogoFieldTests(unittest.TestCase):
         self._mongo_connection.drop_database("__test_change_field_name")
         self._mongo_connection.close()
 
-    def test_field(self) -> None:
+    def test_field_setattr_sets_model_dictionary_values(self) -> None:
 
         class MockModel(Model):
             field = Field[str](str)
@@ -68,7 +68,7 @@ class MogoFieldTests(unittest.TestCase):
         # testing that the required field is, you know, required.
         self.assertRaises(EmptyRequiredField, getattr, empty_model, "required")
 
-    def test_change_field_name(self) -> None:
+    def test_field_name_can_be_overridden_on_construction(self) -> None:
         """It should allow an override of a field's name."""
         class MockModel(Model):
             abbreviated = Field[str](str, field_name="abrv")
@@ -125,7 +125,7 @@ class MogoFieldTests(unittest.TestCase):
         fetched = MockModel.search(regular="meh.")
         self.assertEqual(1, fetched.count())
 
-    def test_enum_field(self) -> None:
+    def test_enum_field_requires_allowed_values(self) -> None:
         """ Test the enum field """
         class EnumModel1(Model):
             field = EnumField((1, 3, "what"))
@@ -142,7 +142,7 @@ class MogoFieldTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             EnumModel1(field="nottheclassname")
 
-    def test_default_field(self) -> None:
+    def test_field_default_value_sets_properly_when_missing(self) -> None:
         """ Test that the default behavior works like you'd expect. """
         class TestDefaultModel(Model):
             field = Field[Any]()  # i.e. no default value
@@ -165,7 +165,7 @@ class MogoFieldTests(unittest.TestCase):
         self.assertEqual("foobar", entry3.field)
         self.assertEqual("foobar", entry3["field"])
 
-    def test_field_coercion(self) -> None:
+    def test_field_coerce_callback_stores_returned_value(self) -> None:
 
         class FloatField(Field[float]):
             value_type = float

@@ -101,7 +101,7 @@ class Field(Generic[T]):
         if field_name not in instance:
             if self._is_required():
                 raise EmptyRequiredField(
-                    "'%s' is required but is empty." % field_name)
+                    f"'{field_name}' is required but is empty.")
             self._set_default(instance, field_name)
         value = self.get_callback(instance, instance.get(field_name))
         return value
@@ -125,8 +125,8 @@ class Field(Generic[T]):
             if not valid:
                 value_type = type(value)
                 raise TypeError(
-                    "Invalid type %s instead of %s for field '%s'" % (
-                        value_type, self.value_type, field_name))
+                    f"Invalid type {value_type} instead of {self.value_type} "
+                    f"for field '{field_name}'")
 
     def __set__(self, instance: "Model", value: Any) -> None:
         field_name = self._get_field_name(instance)
@@ -252,7 +252,7 @@ class EnumField(Field[S]):
         if value not in accepted_values:
             # not listing the accepted values because that might be bad,
             # for example, if it's a cursor or other exhaustible iterator
-            raise ValueError("Value %s not in acceptable values." % value)
+            raise ValueError(f"Value {value} not in acceptable values.")
         return value
 
 

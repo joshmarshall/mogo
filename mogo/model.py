@@ -215,7 +215,7 @@ class Model(metaclass=NewModelClass):
                     setattr(self, field, value)
                 else:
                     if not create_fields:
-                        raise UnknownField("Unknown field %s" % field)
+                        raise UnknownField(f"Unknown field {field}")
                     self.add_field(field, Field())
                     setattr(self, field, value)
             else:
@@ -317,7 +317,7 @@ class Model(metaclass=NewModelClass):
             if key in self._fields.values():
                 setattr(self, key, value)
             else:
-                logging.warning("No field for %s" % key)
+                logging.warning(f"No field for {key}")
                 self[key] = value
             # Attribute names to check.
             checks.append(key)
@@ -326,10 +326,8 @@ class Model(metaclass=NewModelClass):
             field_name = field._get_field_name(self)
             # setting the body key to the pymongo value
             body[field_name] = self[field_name]
-        logging.debug("Checking fields (%s).", checks)
         self._check_required(*checks)
         coll = self._get_collection()
-        logging.debug("Setting body (%s)", body)
         return coll.update_one(spec, {"$set": body})
 
     update = BiContextualUpdate()
@@ -346,8 +344,8 @@ class Model(metaclass=NewModelClass):
             storage_name = field._get_field_name(self)
             if storage_name not in self:
                 if field._is_required():
-                    raise EmptyRequiredField("'%s' is required but empty"
-                                             % field_name)
+                    raise EmptyRequiredField(
+                        f"'{field_name}' is required but empty")
 
     def delete(self: M, *args: Any, **kwargs: Any) -> DeleteResult:
         """
