@@ -587,7 +587,7 @@ class Model(metaclass=NewModelClass):
 
     def __unicode__(self: M) -> str:
         """ Returns string representation. Overwrite in custom models. """
-        return "<MogoModel:{} id:{}>".format(self._get_name(), self._get_id())
+        return f"<MogoModel:{self._get_name()} id:{self._get_id()}>"
 
     def __str__(self: M) -> str:
         return self.__unicode__()
@@ -652,8 +652,7 @@ class PolyModel(Model):
                 name = child_cls.__name__.lower()
                 return _wrap_polymodel(cls, name, child_cls)
             raise ValueError(
-                "Invalid class {} registered for polymodel {}".format(
-                    child_cls, cls))
+                f"Invalid class {child_cls} registered for polymodel {cls}")
 
     @classmethod
     def _update_search_spec(
@@ -719,9 +718,9 @@ def _wrap_polymodel(
 
 def warn_about_keyword_deprecation(keyword: str) -> None:
     warnings.warn(
-        "PyMongo has removed the '{0}' keyword. Mogo disregards this "
-        "keyword and in the near future will raise an error.".format(
-            keyword), DeprecationWarning)
+        f"PyMongo has removed the '{keyword}' keyword. Mogo disregards this "
+        f"keyword and in the near future will raise an error.",
+        DeprecationWarning)
 
 
 __all__ = ["Model", "PolyModel"]
