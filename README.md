@@ -155,7 +155,7 @@ Of course, Models are much more useful with methods:
 ```python
 class Hero(Model):
     def swashbuckle(self) -> None:
-        print "%s is swashbuckling!" % self["name"]
+        print("%s is swashbuckling!" % self["name"])
 
 mal = Hero.find({"name": "Mal"}).first()
 mal.swashbuckle()
@@ -276,12 +276,12 @@ class Ship(Model):
     type = Field(set_callback=lambda x: "Firefly")
 
 ship = Ship(type="firefly")
-print ship.type #prints "Firefly"
+print(ship.type) #prints "Firefly"
 ship.type = "NCC 1701"
-print ship.type # prints "Firefly"
+print(ship.type) # prints "Firefly"
 # overwriting the "real" stored value
 ship["type"] = "Millenium Falcon"
-print ship.type # prints "Millenium Falcon"
+print(ship.type) # prints "Millenium Falcon"
 ```
 
 You can also pass an optional default=VALUE, where VALUE is either a
