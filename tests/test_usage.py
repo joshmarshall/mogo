@@ -137,7 +137,7 @@ class TestMogoGeneralUsage(unittest.TestCase):
         self._conn.close()
 
     def test_uri_connect_populates_database_values(self) -> None:
-        conn = connect(uri=f"mongodb://localhost/{DBNAME}")
+        conn = connect(uri="mongodb://localhost/{}".format(DBNAME))
         self.assertIsInstance(conn, pymongo.MongoClient)
         connection = Connection.instance()
         self.assertEqual(connection._database, DBNAME)

@@ -215,7 +215,7 @@ class Model(metaclass=NewModelClass):
                     setattr(self, field, value)
                 else:
                     if not create_fields:
-                        raise UnknownField(f"Unknown field {field}")
+                        raise UnknownField("Unknown field {}".format(field))
                     self.add_field(field, Field())
                     setattr(self, field, value)
             else:
@@ -317,7 +317,7 @@ class Model(metaclass=NewModelClass):
             if key in self._fields.values():
                 setattr(self, key, value)
             else:
-                logging.warning(f"No field for {key}")
+                logging.warning("No field for {}".format(key))
                 self[key] = value
             # Attribute names to check.
             checks.append(key)
@@ -345,7 +345,7 @@ class Model(metaclass=NewModelClass):
             if storage_name not in self:
                 if field._is_required():
                     raise EmptyRequiredField(
-                        f"'{field_name}' is required but empty")
+                        "'{}' is required but empty".format(field_name))
 
     def delete(self: M, *args: Any, **kwargs: Any) -> DeleteResult:
         """
@@ -585,7 +585,7 @@ class Model(metaclass=NewModelClass):
 
     def __unicode__(self: M) -> str:
         """ Returns string representation. Overwrite in custom models. """
-        return f"<MogoModel:{self._get_name()} id:{self._get_id()}>"
+        return "<MogoModel:{} id:{}>".format(self._get_name(), self._get_id())
 
     def __str__(self: M) -> str:
         return self.__unicode__()
@@ -650,7 +650,8 @@ class PolyModel(Model):
                 name = child_cls.__name__.lower()
                 return _wrap_polymodel(cls, name, child_cls)
             raise ValueError(
-                f"Invalid class {child_cls} registered for polymodel {cls}")
+                "Invalid class {} registered for polymodel {}".format(
+                    child_cls, cls))
 
     @classmethod
     def _update_search_spec(
@@ -716,8 +717,8 @@ def _wrap_polymodel(
 
 def warn_about_keyword_deprecation(keyword: str) -> None:
     warnings.warn(
-        f"PyMongo has removed the '{keyword}' keyword. Mogo disregards this "
-        f"keyword and in the near future will raise an error.",
+        "PyMongo has removed the '{}' keyword. Mogo disregards this "
+        "keyword and in the near future will raise an error.".format(keyword),
         DeprecationWarning)
 
 
