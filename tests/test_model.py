@@ -79,6 +79,45 @@ class Infant(Person):
         return False
 
 
+# Don't read too closely into these shape definitions... :)
+
+
+class Polygon(PolyModel):
+
+    sides = Field[int](int, default=0)
+
+    @classmethod
+    def get_child_key(cls) -> str:
+        return "sides"
+
+    def closed(self) -> bool:
+        return False
+
+    def tessellates(self) -> bool:
+        return False
+
+
+@Polygon.register(3)
+class Triangle(Polygon):
+
+    sides = Field[int](int, default=3)
+
+    def closed(self) -> bool:
+        return True
+
+
+@Polygon.register(4)
+class Rectangle(Polygon):
+
+    sides = Field[int](int, default=4)
+
+    def closed(self) -> bool:
+        return True
+
+    def tessellates(self) -> bool:
+        return True
+
+
 DBNAME = '_mogotest'
 
 
@@ -287,3 +326,22 @@ class TestModel(unittest.TestCase):
             warnings.simplefilter("error")
             with self.assertRaises(DeprecationWarning):
                 person.save(safe=True)
+
+    def test_polymodel_registration_implicit_arguments(self) -> None:
+        Polygon.create(sides=10)
+        Polygon.create(sides=3)
+        Polygon.create(sides=4)
+
+        for model in Polygon.find():
+            if model.sides == 3:
+                self.assertFalse(model.tessellates())
+                self.assertTrue(model.closed())
+                self.assertTrue(isinstance(model, Triangle))
+            elif model.sides == 4:
+                self.assertTrue(model.tessellates())
+                self.assertTrue(model.closed())
+                self.assertTrue(isinstance(model, Rectangle))
+            else:
+                self.assertFalse(model.tessellates())
+                self.assertFalse(model.closed())
+                self.assertTrue(isinstance(model, Polygon))

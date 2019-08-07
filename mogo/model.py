@@ -133,7 +133,7 @@ class Model(metaclass=NewModelClass):
     _name = None  # type: Optional[str]
     _pymongo_data = None  # type: Optional[Dict[str, Any]]
     _collection = None  # type: Optional[Collection]
-    _child_models = None  # type: Optional[Dict[str, Type["PolyModel"]]]
+    _child_models = None  # type: Optional[Dict[Any, Type["PolyModel"]]]
     _init_okay = False  # type: bool
     __fields = None  # type: Optional[Dict[int, str]]
 
@@ -622,36 +622,43 @@ class PolyModel(Model):
 
     @typing.overload  # noqa: F811
     @classmethod
-    def register(cls: Type[P], name: Type[P]) -> Type[P]: ...  # noqa: F811
+    def register(cls: Type[P], value: Type[P]) -> Type[P]: ...  # noqa: F811
 
     @typing.overload  # noqa: F811
     @classmethod
     def register(  # noqa: F811
-        cls: Type[P], name: str) -> \
-        Callable[[Type[P]], Type[P]]: ...
+        cls: Type[P], value: Optional[Any] = None,
+        name: Optional[str] = None) -> Callable[[Type[P]], Type[P]]: ...
 
     @classmethod  # noqa: F811
     def register(  # noqa: F811
             cls: Type[P],
-            name: Union[str, Type[P]]) -> \
+            value: Optional[Union[Any, Type[P]]] = None,
+            name: Optional[str] = None) -> \
             Union[
                 Type[P],
                 Callable[[Type[P]], Type[P]]]:
         """ Decorator for registering a submodel """
 
-        if type(name) is str:
+        if value is None:
             def wrap(child_cls: Type[P]) -> Type[P]:
-                return _wrap_polymodel(cls, cast(str, name), child_cls)
+                poly_name = name or child_cls.__name__.lower()
+                poly_value = poly_name
+                return _wrap_polymodel(cls, poly_name, poly_value, child_cls)
             return wrap
+        elif not inspect.isclass(value):
+            def wrap(child_cls: Type[P]) -> Type[P]:
+                poly_name = name or child_cls.__name__.lower()
+                return _wrap_polymodel(cls, poly_name, value, child_cls)
+            return wrap
+        elif issubclass(value, cls):
+            child_cls = cast(Type[P], value)
+            name = child_cls.__name__.lower()
+            value = name
+            return _wrap_polymodel(cls, name, value, child_cls)
         else:
-            child_cls = cast(Type[P], name)
-            if inspect.isclass(child_cls) and issubclass(child_cls, cls):
-                # Decorator without arguments
-                name = child_cls.__name__.lower()
-                return _wrap_polymodel(cls, name, child_cls)
             raise ValueError(
-                "Invalid class {} registered for polymodel {}".format(
-                    child_cls, cls))
+                "Could not register polymodel value {}".format(value))
 
     @classmethod
     def _update_search_spec(
@@ -703,6 +710,7 @@ class PolyModel(Model):
 def _wrap_polymodel(
         cls: Type[P],
         name: str,
+        value: Any,
         child_class: Type[P]) -> Type[P]:
     """ Wrap the child class and return it """
     child_class._name = cls._get_name()
@@ -711,7 +719,7 @@ def _wrap_polymodel(
         "name": name
     }
     if cls._child_models is not None:
-        cls._child_models[name] = child_class
+        cls._child_models[value] = child_class
     return child_class
 
 
