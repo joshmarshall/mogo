@@ -291,6 +291,13 @@ class TestMogoGeneralUsage(unittest.TestCase):
         results = [f.bar for f in Foo.find().sort("bar")]
         self.assertEqual(["aaa", "ggg", "zzz"], results)
 
+    def test_cursor_supports_skip_and_limit_passthrough(self) -> None:
+        Foo.create(bar="aaa")
+        Foo.create(bar="ggg")
+        Foo.create(bar="zzz")
+        results = [f.bar for f in Foo.find().sort("bar").skip(1).limit(1)]
+        self.assertEqual(["ggg"], results)
+
     def test_setattr_updates_field_values(self) -> None:
         foo = Foo(bar="baz")
         foo.save()

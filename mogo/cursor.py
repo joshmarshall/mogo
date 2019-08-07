@@ -69,6 +69,14 @@ class Cursor(Generic[T]):
             return None
         return self.next()
 
+    def skip(self, skip: int) -> "Cursor[T]":
+        check_none(self._cursor).skip(skip)
+        return self
+
+    def limit(self, limit: int) -> "Cursor[T]":
+        check_none(self._cursor).limit(limit)
+        return self
+
     def sort(self, *args: Any, **kwargs: Any) -> "Cursor[T]":
         check_none(self._cursor).sort(*args, **kwargs)
         return self
