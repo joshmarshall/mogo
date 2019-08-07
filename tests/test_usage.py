@@ -284,6 +284,13 @@ class TestMogoGeneralUsage(unittest.TestCase):
         with self.assertRaises(ValueError):
             foo.find(bar="bad_find")
 
+    def test_cursor_supports_sort_passthrough(self) -> None:
+        Foo.create(bar="zzz")
+        Foo.create(bar="aaa")
+        Foo.create(bar="ggg")
+        results = [f.bar for f in Foo.find().sort("bar")]
+        self.assertEqual(["aaa", "ggg", "zzz"], results)
+
     def test_setattr_updates_field_values(self) -> None:
         foo = Foo(bar="baz")
         foo.save()

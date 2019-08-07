@@ -35,7 +35,7 @@ class Cursor(Generic[T]):
         self._cursor = PyCursor(
             self._model_class._get_collection(), spec, *args, **kwargs)
 
-    def __iter__(self) -> 'Cursor[T]':
+    def __iter__(self) -> "Cursor[T]":
         return self
 
     def __next__(self) -> T:
@@ -69,10 +69,14 @@ class Cursor(Generic[T]):
             return None
         return self.next()
 
+    def sort(self, *args: Any, **kwargs: Any) -> "Cursor[T]":
+        check_none(self._cursor).sort(*args, **kwargs)
+        return self
+
     def order(
             self,
             **kwargs: int
-            ) -> 'Cursor[T]':
+            ) -> "Cursor[T]":
         if len(kwargs) != 1:
             raise ValueError("order() requires one field = ASC or DESC.")
         for key, value in kwargs.items():
@@ -84,7 +88,7 @@ class Cursor(Generic[T]):
             check_none(self._cursor).sort(self._order_entries)
         return self
 
-    def update(self, modifier: Dict[str, Any]) -> 'Cursor[T]':
+    def update(self, modifier: Dict[str, Any]) -> "Cursor[T]":
         if self._query is None:
             raise ValueError(
                 "Cannot update on a cursor without a query. If you "
@@ -94,7 +98,7 @@ class Cursor(Generic[T]):
             self._query, modifier, multi=True)
         return self
 
-    def change(self, **kwargs: Any) -> 'Cursor[T]':
+    def change(self, **kwargs: Any) -> "Cursor[T]":
         modifier = {"$set": kwargs}
         return self.update(modifier)
 
