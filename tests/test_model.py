@@ -1,5 +1,8 @@
 """ Various tests for the Model class """
 
+import datetime
+
+from bson.objectid import ObjectId
 import mogo
 from mogo.connection import connect
 from mogo.model import PolyModel, Model, InvalidUpdateCall, UnknownField
@@ -7,12 +10,7 @@ from mogo.field import ReferenceField, Field, EmptyRequiredField
 import unittest
 import warnings
 
-from pymongo.collection import Collection
 from typing import Any, cast, Dict, Sequence
-
-
-class MockCollection(object):
-    pass
 
 
 class Ref(Model):
@@ -20,8 +18,6 @@ class Ref(Model):
 
 
 class Foo(Model):
-
-    _collection = cast(Collection, MockCollection())
 
     field = Field[Any]()
     required = Field[Any](required=True)
@@ -214,6 +210,20 @@ class TestModel(unittest.TestCase):
         self.assertEqual(foo.id, "whoop")
         self.assertEqual(foo._id, "whoop")
         self.assertEqual(foo['_id'], "whoop")
+
+    def test_model_upserts_on_save_with_custom_id_value(self) -> None:
+        custom_time = datetime.datetime.now() - datetime.timedelta(days=30)
+        custom_id = ObjectId.from_datetime(custom_time)
+        foo = Foo.new(required="foobar")
+        foo["_id"] = custom_id
+        foo.save()
+        result = Foo.first()
+
+        if not result:
+            self.fail("Did not save Foo instance with custom _id.")
+
+        idval = cast(ObjectId, result.id)
+        self.assertEqual(idval, custom_id)
 
     def test_inheritance_constructs_proper_polymorphic_instances(self) -> None:
         self.assertEqual(Person._get_name(), Child._get_name())

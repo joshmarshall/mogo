@@ -285,7 +285,7 @@ class Model(metaclass=NewModelClass):
             self.__setitem__(self._id_field, object_id)
         else:
             spec = {self._id_field: object_id}
-            coll.update_one(spec, {"$set": self.copy()})
+            coll.update_one(spec, {"$set": self.copy()}, upsert=True)
         return object_id
 
     @classmethod
