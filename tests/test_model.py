@@ -189,6 +189,10 @@ class TestModel(unittest.TestCase):
         foo = Foo()
         self.assertIsNotNone(foo)
 
+    def test_model_comparison_with_other_objects_works(self) -> None:
+        foo = Foo()
+        self.assertNotEqual(foo, object())
+
     def test_null_reference_field_value_is_supported(self) -> None:
         foo = Foo()
         foo.reference = None

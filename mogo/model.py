@@ -548,7 +548,8 @@ class Model(metaclass=NewModelClass):
         if other is None:
             return False
 
-        other = cast(M, other)
+        if not isinstance(other, Model):
+            return False
 
         this_id = self._get_id()
         other_id = other._get_id()
