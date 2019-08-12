@@ -64,6 +64,9 @@ class Cursor(Generic[T]):
             return cast(T, value)
         return check_none(self._model)(**value)
 
+    def close(self) -> None:
+        return check_none(self._cursor).close()
+
     def first(self) -> Optional[T]:
         if self.count() == 0:
             return None
