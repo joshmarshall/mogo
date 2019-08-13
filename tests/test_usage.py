@@ -306,6 +306,18 @@ class TestMogoGeneralUsage(unittest.TestCase):
         with self.assertRaises(StopIteration):
             cursor.next()
 
+    def test_cursor_supports_rewind_passthrough(self) -> None:
+        for i in range(10):
+            Foo.create(bar="ggg")
+        cursor = Foo.find()
+        results1 = list(cursor)
+        with self.assertRaises(StopIteration):
+            cursor.next()
+
+        cursor.rewind()
+        results2 = list(cursor)
+        self.assertEqual(results1, results2)
+
     def test_setattr_updates_field_values(self) -> None:
         foo = Foo(bar="baz")
         foo.save()
