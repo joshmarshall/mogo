@@ -1,6 +1,7 @@
 from mogo.helpers import check_none
 
 from pymongo import ASCENDING, DESCENDING
+from pymongo.collation import Collation
 from pymongo.cursor import Cursor as PyCursor
 
 from typing import Any, cast, Dict, Generic, Iterator, List, Optional, Tuple
@@ -75,6 +76,10 @@ class Cursor(Generic[T]):
         if self.count() == 0:
             return None
         return self.next()
+
+    def collation(self, collation: Collation) -> "Cursor[T]":
+        check_none(self._cursor).collation(collation)
+        return self
 
     def skip(self, skip: int) -> "Cursor[T]":
         check_none(self._cursor).skip(skip)

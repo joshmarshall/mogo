@@ -20,6 +20,7 @@ from mogo.connection import Connection
 from mogo.cursor import Cursor
 from mogo.model import UnknownField
 import pymongo
+from pymongo.collation import Collation
 
 from typing import Any, cast, Optional, Type, TypeVar
 
@@ -317,6 +318,15 @@ class TestMogoGeneralUsage(unittest.TestCase):
         cursor = cursor.rewind()
         results2 = list(cursor)
         self.assertEqual(results1, results2)
+
+    def test_cursor_supports_collation_passthrough(self) -> None:
+        for c in ["Z", "a", "B", "z", "A", "b"]:
+            Foo.create(bar=c)
+        cursor = Foo.find()
+        cursor = cursor.collation(Collation(locale="en_US"))
+        cursor.sort("bar")
+        results = [f.bar for f in cursor]
+        self.assertEqual(["a", "A", "b", "B", "z", "Z"], results)
 
     def test_setattr_updates_field_values(self) -> None:
         foo = Foo(bar="baz")
