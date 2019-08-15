@@ -67,8 +67,9 @@ class Cursor(Generic[T]):
     def close(self) -> None:
         return check_none(self._cursor).close()
 
-    def rewind(self) -> None:
-        return check_none(self._cursor).rewind()
+    def rewind(self) -> "Cursor[T]":
+        check_none(self._cursor).rewind()
+        return self
 
     def first(self) -> Optional[T]:
         if self.count() == 0:

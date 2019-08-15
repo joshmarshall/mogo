@@ -314,7 +314,7 @@ class TestMogoGeneralUsage(unittest.TestCase):
         with self.assertRaises(StopIteration):
             cursor.next()
 
-        cursor.rewind()
+        cursor = cursor.rewind()
         results2 = list(cursor)
         self.assertEqual(results1, results2)
 
