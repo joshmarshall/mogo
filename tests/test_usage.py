@@ -705,6 +705,21 @@ class TestMogoGeneralUsage(unittest.TestCase):
         custom_model.custom3 = 15
         self.assertEqual(2, custom_model["custom3"])
 
+    def test_delete_field_by_key(self) -> None:
+        foo = Foo.create(bar="value")
+        result = Foo.first()
+        if result is None:
+            self.fail("Did not save Foo entry.")
+            return
+        self.assertEqual("value", foo["bar"])
+        del result["bar"]
+        result.save()
+        result = Foo.first()
+        if result is None:
+            self.fail("Did not retain Foo entry.")
+            return
+        self.assertNotIn("bar", result)
+
     def test_first_returns_first_matching_instance(self) -> None:
         foo = Foo()
         foo.bar = "search"

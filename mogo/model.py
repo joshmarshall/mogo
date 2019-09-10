@@ -160,6 +160,9 @@ class Model(metaclass=NewModelClass):
     def __getitem__(self: M, key: str) -> Any:
         return check_none(self._pymongo_data).__getitem__(key)
 
+    def __delitem__(self: M, key: str) -> Any:
+        return check_none(self._pymongo_data).__delitem__(key)
+
     def __contains__(self: M, item: str) -> bool:
         return check_none(self._pymongo_data).__contains__(item)
 
@@ -285,7 +288,7 @@ class Model(metaclass=NewModelClass):
             self.__setitem__(self._id_field, object_id)
         else:
             spec = {self._id_field: object_id}
-            coll.update_one(spec, {"$set": self.copy()}, upsert=True)
+            coll.replace_one(spec, self.copy(), upsert=True)
         return object_id
 
     @classmethod

@@ -28,6 +28,16 @@ class Collection(object):
         collation: Optional[Collation] = None,
         session: Optional[ClientSession] = None) -> UpdateResult: ...
 
+    def replace_one(
+        self,
+        filter: Dict[str, Any],
+        replacement: Dict[str, Any],
+        upsert: bool = False,
+        bypass_document_validation: bool = False,
+        collation: Optional[Collation] = None,
+        array_filters: Optional[Dict[str, Any]] = None,
+        session: Optional[ClientSession] = None) -> UpdateResult: ...
+
     def insert_one(self,
         document: Dict[str, Any],
         bypass_document_validation: bool = False,
