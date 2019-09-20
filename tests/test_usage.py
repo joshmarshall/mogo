@@ -93,11 +93,11 @@ class Car(PolyModel):
         raise NotImplementedError("Implement this in child classes")
 
 
-@Car.register("sportscar")
+@Car.register("sportscar_value")
 class SportsCar(Car):
     """ Alternate car """
     doors = Field[int](int, default=2)
-    type = Field[str](str, default="sportscar")
+    type = Field[str](str, default="sportscar_value")
 
     def drive(self) -> bool:
         """ Overwritten """
@@ -576,11 +576,11 @@ class TestMogoGeneralUsage(unittest.TestCase):
         self.assertTrue(sportscar.drive())
         self.assertEqual(sportscar.doors, 2)
         self.assertEqual(sportscar.wheels, 4)
-        self.assertEqual(sportscar.type, "sportscar")
+        self.assertEqual(sportscar.type, "sportscar_value")
         self.assertEqual(SportsCar.find().count(), 1)
         sportscar2 = self.assert_not_none(SportsCar.find().first())
         self.assertEqual(sportscar2.doors, 2)
-        self.assertEqual(sportscar2.type, "sportscar")
+        self.assertEqual(sportscar2.type, "sportscar_value")
         self.assertEqual(Car.find().count(), 2)
         sportscar3 = self.assert_not_none(Car.find({"doors": 2}).first())
         self.assertIsInstance(sportscar3, SportsCar)
@@ -598,8 +598,8 @@ class TestMogoGeneralUsage(unittest.TestCase):
         self.assertIsInstance(all_cars[2], Convertible)
 
         self.assertEqual(SportsCar.search().count(), 1)
-
         self.assertEqual(Convertible.find_one(), convertible)
+        self.assertEqual(SportsCar.first(), Car.first(type="sportscar_value"))
 
     def test_all_string_representation_methods_call__unicode__(self) -> None:
         """ Test __repr__, __str__, and __unicode__ """

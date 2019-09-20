@@ -670,9 +670,9 @@ class PolyModel(Model):
         """ Update the search specification on child polymodels. """
         spec = spec or {}
         if cls._polyinfo is not None:
-            name = cls._polyinfo["name"]
+            value = cls._polyinfo["value"]
             polyclass = cast(P, cls._polyinfo["parent"])
-            spec.setdefault(polyclass.get_child_key(), name)
+            spec.setdefault(polyclass.get_child_key(), value)
         return spec
 
     @classmethod
@@ -720,7 +720,8 @@ def _wrap_polymodel(
     child_class._name = cls._get_name()
     child_class._polyinfo = {
         "parent": cls,
-        "name": name
+        "name": name,
+        "value": value
     }
     if cls._child_models is not None:
         cls._child_models[value] = child_class
