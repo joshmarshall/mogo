@@ -226,6 +226,23 @@ class TestMogoGeneralUsage(unittest.TestCase):
             Foo.remove()
         self.assertEqual(Foo.count(), 1)
 
+    def test_class_remove_respects_multi_parameters(self) -> None:
+
+        class Mod(Model):
+            val = Field(int)
+            mod = Field(int)
+
+        for i in range(100):
+            foo = Mod(val=i, mod=i % 2)
+            foo.save()
+
+        matches = Mod.find({"mod": 1}).count()
+        Mod.remove({"mod": 1})
+        self.assertEqual(matches - 1, Mod.find({"mod": 1}).count())
+
+        Mod.remove({"mod": 1}, multi=True)
+        self.assertEqual(0, Mod.find({"mod": 1}).count())
+
     def test_count_returns_total_number_of_stored_entries(self) -> None:
         foo = Foo()
         foo.bar = "count"

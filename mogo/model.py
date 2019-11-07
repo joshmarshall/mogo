@@ -299,7 +299,7 @@ class Model(metaclass=NewModelClass):
             warn_about_keyword_deprecation("safe")
             del kwargs["safe"]
         coll = cls._get_collection()  # type: Collection
-        if "multi" in kwargs and kwargs.pop("multi"):
+        if "multi" in kwargs and kwargs.pop("multi") is True:
             return coll.update_many(*args, **kwargs)
         return coll.update_one(*args, **kwargs)
 
@@ -379,7 +379,10 @@ class Model(metaclass=NewModelClass):
             raise ValueError(
                 'remove() requires a query when called with keyword arguments')
         coll = cls._get_collection()
-        return coll.delete_many(*args, **kwargs)
+        if "multi" in kwargs and kwargs.pop("multi") is True:
+            return coll.delete_many(*args, **kwargs)
+        else:
+            return coll.delete_one(*args, **kwargs)
 
     @notinstancemethod
     @classmethod
