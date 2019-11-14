@@ -8,6 +8,9 @@ FILE ?= mogo/
 TEST_FILE ?= tests/
 
 
+all: lint test typecheck typecheck-tests
+
+
 test: lint typecheck typecheck-tests
 	@$(PYTHON_TEST_RUNNER) tests/ --verbose
 
