@@ -90,7 +90,7 @@ class UnknownField(Exception):
 class NewModelClass(type):
     """ Metaclass for inheriting field lists """
 
-    def __new__(
+    def __new__(  # type: ignore
             cls,
             name: str,
             bases: Tuple[type, ...],
@@ -166,8 +166,11 @@ class Model(metaclass=NewModelClass):
     def __contains__(self: M, item: str) -> bool:
         return check_none(self._pymongo_data).__contains__(item)
 
-    def __hash__(self: M) -> int:
-        return check_none(self._pymongo_data).__hash__()
+    def __hash__(self: M) -> Any:
+        hash_impl = check_none(self._pymongo_data).__hash__
+        if hash_impl is None:
+            return None
+        return hash_impl()
 
     def __len__(self: M) -> int:
         return check_none(self._pymongo_data).__len__()

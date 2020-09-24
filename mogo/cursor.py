@@ -61,7 +61,7 @@ class Cursor(Generic[T]):
 
     def __getitem__(self, index: int) -> T:
         value = check_none(self._cursor).__getitem__(index)
-        if type(value) == self.__class__:
+        if isinstance(value, self.__class__):
             return cast(T, value)
         return check_none(self._model)(**value)
 

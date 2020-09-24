@@ -2,7 +2,7 @@
 Just various decorators.
 """
 
-from typing import Any, cast, Callable, Optional, Type, TypeVar
+from typing import Any, cast, Callable, Optional, Type, TypeVar, Union
 
 
 T = TypeVar("T")
@@ -13,7 +13,7 @@ class notinstancemethod(object):
     Used to refuse access to a classmethod if called from an instance.
     """
 
-    def __init__(self, func: Callable[..., T]) -> None:
+    def __init__(self, func: Union[Callable[..., T], classmethod]) -> None:
         if type(func) is not classmethod:
             raise ValueError("`notinstancemethod` called on non-classmethod")
         self.func = func
