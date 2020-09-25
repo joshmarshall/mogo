@@ -1,2 +1,1 @@
-six
-pymongo
+pymongo>=3.0

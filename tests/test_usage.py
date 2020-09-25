@@ -1,12 +1,5 @@
 """
-A variety of tests to cover the majority of the functionality
-in mogo. I'd really like to get this to 100% code coverage...
-
 NOTES:
-I use safe=True for most of the save operations because sometimes
-it was too quick and a find or search operation performed immediately
-afterwards would not return the new object.
-
 You need to have mongod running on the local machine for this
 to run. Will probably add config options later for testing
 remote machines.
@@ -15,95 +8,98 @@ If for some reason you have a database named "_mogotest", you will
 probably want to change DBNAME. :)
 """
 
+from datetime import datetime
 import unittest
+import warnings
+
+from bson.objectid import ObjectId
 import mogo
 from mogo import PolyModel, Model, Field, ReferenceField, DESC, connect
 from mogo import ConstantField
 from mogo.connection import Connection
+from mogo.cursor import Cursor
 from mogo.model import UnknownField
 import pymongo
+from pymongo.collation import Collation
 
-try:
-    from pymongo.objectid import ObjectId
-except ImportError:
-    from bson.objectid import ObjectId
+from typing import Any, cast, Optional, Type, TypeVar
 
-try:
-    unicode
-except NameError:
-    unicode = str
 
-import sys
-from datetime import datetime
+T = TypeVar("T")
 
-DBNAME = '_mogotest'
+
+DBNAME = "_mogotest"
 ALTDB = "_mogotest2"
 DELETE = True
 
 
 class Foo(Model):
-    bar = Field(unicode)
-    typeless = Field()
-    dflt = Field(unicode, default=u'dflt')
-    callme = Field(unicode, default=lambda: u'funtimes')
+    bar = Field(str)
+    typeless = Field[Any]()
+    dflt = Field(str, default="dflt")
+    callme = Field(str, default=lambda: "funtimes")
     dtnow = Field(datetime, default=lambda: datetime.now())
 
-    def __unicode__(self):
+    def __unicode__(self) -> str:
         return "FOOBAR"
+
 
 Foo.ref = ReferenceField(Foo)
 
 
+F = TypeVar("F", bound="FooWithNew")
+
+
 class FooWithNew(Model):
-    bar = Field(unicode)
+    bar = Field(str)
 
     @classmethod
-    def new(cls):
-        return cls(bar=u"whatever")
+    def new(cls: Type[F], **kwargs: Any) -> F:
+        return cls(bar="whatever")
 
 
 class Company(Model):
-    name = Field(str)
+    name = Field[str](str)
 
     @property
-    def people(self):
+    def people(self) -> Cursor["Person"]:
         return Person.search(company=self)
 
 
 class Person(Model):
     _name = "people"
     company = ReferenceField(Company)
-    name = Field(str)
-    email = Field(str)
+    name = Field[str](str)
+    email = Field[str](str)
 
 
 class SubPerson(Person):
     """ Testing inheritance """
-    another_field = Field(str)
+    another_field = Field[str](str)
 
 
 class Car(PolyModel):
     """ Base model for alternate inheritance """
-    doors = Field(int, default=4)
-    wheels = Field(int, default=4)
-    type = Field(unicode, default=u"car")
+    doors = Field[int](int, default=4)
+    wheels = Field[int](int, default=4)
+    type = Field[str](str, default="car")
 
     @classmethod
-    def get_child_key(cls):
+    def get_child_key(cls) -> str:
         return "type"
 
-    def drive(self):
+    def drive(self) -> bool:
         """ Example method to overwrite """
         raise NotImplementedError("Implement this in child classes")
 
 
-@Car.register("sportscar")
+@Car.register("sportscar_value")
 class SportsCar(Car):
     """ Alternate car """
-    doors = Field(int, default=2)
-    type = Field(unicode, default=u"sportscar")
+    doors = Field[int](int, default=2)
+    type = Field[str](str, default="sportscar_value")
 
-    def drive(self):
+    def drive(self) -> bool:
         """ Overwritten """
         return True
 
@@ -112,30 +108,37 @@ class SportsCar(Car):
 class Convertible(SportsCar):
     """ New methods """
 
-    _top_down = False
+    _top_down = False  # type: bool
 
-    type = Field(unicode, default=u"convertible")
+    type = Field[str](str, default="convertible")
 
-    def toggle_roof(self):
+    def toggle_roof(self) -> bool:
         """ Opens / closes roof """
         self._top_down = not self._top_down
         return self._top_down
 
 
-class MogoTests(unittest.TestCase):
+class TestMogoGeneralUsage(unittest.TestCase):
 
-    def setUp(self):
+    def setUp(self) -> None:
         self._conn = connect(DBNAME)
 
-    def test_connect(self):
+    def assert_not_none(self, obj: Optional[T]) -> T:
+        # this is just a custom version of assertIsNotNone that
+        # returns the object of the correct type if it's not null
+        if obj is None:
+            self.fail("Object unexpectedly none.")
+        return obj
+
+    def test_connect_populates_database(self) -> None:
         self.assertRaises(ValueError, connect)
         self.assertIsInstance(self._conn, pymongo.MongoClient)
         connection = Connection.instance()
         self.assertEqual(connection._database, DBNAME)
         self._conn.close()
 
-    def test_uri_connect(self):
-        conn = connect(uri="mongodb://localhost/%s" % DBNAME)
+    def test_uri_connect_populates_database_values(self) -> None:
+        conn = connect(uri="mongodb://localhost/{}".format(DBNAME))
         self.assertIsInstance(conn, pymongo.MongoClient)
         connection = Connection.instance()
         self.assertEqual(connection._database, DBNAME)
@@ -147,201 +150,259 @@ class MogoTests(unittest.TestCase):
         self.assertEqual(connection._database, DBNAME)
         conn.close()
 
-    def test_model(self):
-        foo = Foo(bar=u'cheese')
-        self.assertEqual(foo.bar, u'cheese')
-        self.assertEqual(foo.dflt, u'dflt')
-        self.assertEqual(foo.callme, u'funtimes')
+    def test_model_construction_populates_field_data(self) -> None:
+        foo = Foo(bar="cheese")
+        self.assertEqual(foo.bar, "cheese")
+        self.assertEqual(foo.dflt, "dflt")
+        self.assertEqual(foo.callme, "funtimes")
         self.assertIsInstance(foo.dtnow, datetime)
-        foo.bar = u'model'
-        self.assertEqual(foo.bar, u'model')
+        foo.bar = "model"
+        self.assertEqual(foo.bar, "model")
 
-    def test_model_create(self):
-        foo = Foo.create(bar=u"cheese")
+    def test_model_create_saves_model_into_database(self) -> None:
+        foo = Foo.create(bar="cheese")
         self.assertEqual(foo.bar, "cheese")
         self.assertEqual(Foo.find().count(), 1)
         # testing with a classmethod "new" defined.
-        foo = FooWithNew.create()
-        self.assertIsNotNone(foo._id)
-        self.assertEqual(foo.bar, u"whatever")
+        foo2 = FooWithNew.create()
+        self.assertIsNotNone(foo2._id)
+        self.assertEqual(foo2.bar, "whatever")
 
-    def test_save_defaults(self):
-        """
-        test that default values get saved alongside other values when creating
-        the model.
-        """
-        foo = Foo(bar=u'goat')
-        id_ = foo.save(safe=True)
-        raw_result = Foo._collection.find_one({"_id": id_})
-        self.assertEqual(raw_result["dflt"], u'dflt')
+    def test_save_includes_default_fields_in_database(self) -> None:
+        foo = Foo(bar="goat")
+        id_ = foo.save(w=1)
+        raw_result = self.assert_not_none(
+            Foo._get_collection().find_one({"_id": id_}))
+        self.assertEqual(raw_result["dflt"], "dflt")
 
-    def test_create_delete(self):
+    def test_create_stores_updates_id_for_model(self) -> None:
         foo = Foo()
-        foo.bar = u'create_delete'
-        idval = foo.save(safe=True)
+        foo.bar = "create_delete"
+        idval = foo.save()
         self.assertIs(type(idval), ObjectId)
         self.assertEqual(foo.id, idval)
 
-    def test_search_or_create(self):
-        foo = Foo.search_or_create(bar=u'howdy')
+    def test_search_or_create_inserts_and_updates_accordingly(self) -> None:
+        foo = Foo.search_or_create(bar="howdy")
         self.assertIsInstance(foo._id, ObjectId)
         foo.typeless = 4
         foo.save()
 
-        baz = Foo.search_or_create(bar=u'howdy', typeless=2)
+        baz = Foo.search_or_create(bar="howdy", typeless=2)
         self.assertNotEqual(foo.id, baz.id)
         self.assertEqual(baz.typeless, 2)
 
-        qux = Foo.search_or_create(bar=u'howdy', typeless=4)
+        qux = Foo.search_or_create(bar="howdy", typeless=4)
         self.assertEqual(foo.id, qux.id)
         self.assertEqual(qux.typeless, 4)
 
-    def test_find_one(self):
+    def test_find_one_returns_first_matching_entry(self) -> None:
         foo = Foo()
-        foo.bar = u'find_one'
-        idval = foo.save(safe=True)
-        foo2 = Foo.find_one({u'bar': u'find_one'})
+        foo.bar = "find_one"
+        idval = foo.save()
+        foo2 = self.assert_not_none(Foo.find_one({"bar": "find_one"}))
         self.assertEqual(foo2._get_id(), idval)
         self.assertEqual(foo2, foo)
 
-    def test_bad_find_one(self):
-        foo = Foo.new(bar=u'bad_find_one')
+    def test_find_one_returns_none_if_not_existing(self) -> None:
+        self.assertIsNone(Foo.find_one({}))
+
+    def test_find_one_raises_when_keyword_arguments_are_provided(self) -> None:
+        foo = Foo.new(bar="bad_find_one")
         foo.save()
         item = foo.find_one()
-        self.assertTrue(item)
-        item = foo.find_one({}, timeout=False)
-        self.assertTrue(item)
+        self.assertIsNotNone(item)
+        item = foo.find_one({})
+        self.assertIsNotNone(item)
         with self.assertRaises(ValueError):
-            foo.find_one(bar=u'bad_find_one')
+            foo.find_one(bar="bad_find_one")
 
-    def test_bad_remove_arguments(self):
-        foo = Foo.create(bar=u"testing")
-        foo.save(safe=True)
+    def test_remove_raises_when_keyword_arguments_are_provided(self) -> None:
+        foo = Foo.create(bar="testing")
+        foo.save()
         with self.assertRaises(ValueError):
             Foo.remove(bar="testing")
         with self.assertRaises(ValueError):
             Foo.remove()
         self.assertEqual(Foo.count(), 1)
 
-    def test_count(self):
+    def test_class_remove_respects_multi_parameters(self) -> None:
+
+        class Mod(Model):
+            val = Field(int)
+            mod = Field(int)
+
+        for i in range(100):
+            foo = Mod(val=i, mod=i % 2)
+            foo.save()
+
+        matches = Mod.find({"mod": 1}).count()
+        Mod.remove({"mod": 1})
+        self.assertEqual(matches - 1, Mod.find({"mod": 1}).count())
+
+        Mod.remove({"mod": 1}, multi=True)
+        self.assertEqual(0, Mod.find({"mod": 1}).count())
+
+    def test_count_returns_total_number_of_stored_entries(self) -> None:
         foo = Foo()
-        foo.bar = u'count'
-        foo.save(safe=True)
+        foo.bar = "count"
+        foo.save()
         count = Foo.count()
         self.assertEqual(count, 1)
 
-    def test_grab(self):
+    def test_grab_returns_instance_by_id(self) -> None:
         foo = Foo()
-        foo.bar = u'grab'
-        idval = foo.save(safe=True)
-        newfoo = Foo.grab(str(idval))
-        self.assertIsNotNone(newfoo)
+        foo.bar = "grab"
+        idval = foo.save()
+        newfoo = self.assert_not_none(Foo.grab(str(idval)))
         self.assertEqual(newfoo.id, idval)
         self.assertEqual(newfoo._id, idval)
 
-    def test_find(self):
+    def test_find_returns_model_instances_from_iterator(self) -> None:
         foo = Foo()
-        foo.bar = u'find'
-        foo.save(safe=True)
+        foo.bar = "find"
+        foo.save()
         foo2 = Foo()
-        foo2.bar = u'find'
+        foo2.bar = "find"
         foo2.save()
-        result = Foo.find({'bar': u'find'})
+        result = Foo.find({"bar": "find"})
         self.assertEqual(result.count(), 2)
         f = result[0]  # should be first one
         self.assertIs(type(f), Foo)
-        self.assertEqual(f.bar, u'find')
+        self.assertEqual(f.bar, "find")
         for f in result:
             self.assertIs(type(f), Foo)
 
-    def test_find_next_fallback(self):
+    def test_find_next_method_returns_constructed_models(self) -> None:
         # this is mostly to verify Python 3 compatibility with the next()
-        foo = Foo.create(bar=u"find")
-        foo2 = Foo.create(bar=u"find")
-        result = Foo.find({'bar': u'find'})
+        foo = Foo.create(bar="find")
+        foo2 = Foo.create(bar="find")
+        result = Foo.find({"bar": "find"})
         self.assertEqual(foo, result.next())
         self.assertEqual(foo2, result.next())
         with self.assertRaises(StopIteration):
             result.next()
 
-    def test_find_len(self):
-        foo = Foo(bar=u'find')
-        foo.save(safe=True)
-        foo2 = Foo(bar=u'find')
+    def test_find_len_returns_count_of_results_from_query(self) -> None:
+        foo = Foo(bar="find")
+        foo.save()
+        foo2 = Foo(bar="find")
         foo2.save()
-        result = Foo.find({'bar': u'find'})
+        result = Foo.find({"bar": "find"})
         self.assertEqual(result.count(), 2)
         self.assertEqual(len(result), 2)
 
-    def test_bad_find(self):
-        foo = Foo.new(bar=u'bad_find')
-        foo.save(safe=True)
+    def test_find_raises_when_keyword_arguments_provided(self) -> None:
+        foo = Foo.new(bar="bad_find")
+        foo.save()
         cursor = foo.find()
         self.assertTrue(cursor.count())
-        cursor = foo.find({}, timeout=False)
+        cursor = foo.find({})
         self.assertTrue(cursor.count())
         with self.assertRaises(ValueError):
-            foo.find(bar=u'bad_find')
+            foo.find(bar="bad_find")
 
-    def test_setattr_save(self):
-        foo = Foo(bar=u"baz")
-        foo.save(safe=True)
+    def test_cursor_supports_sort_passthrough(self) -> None:
+        Foo.create(bar="zzz")
+        Foo.create(bar="aaa")
+        Foo.create(bar="ggg")
+        results = [f.bar for f in Foo.find().sort("bar")]
+        self.assertEqual(["aaa", "ggg", "zzz"], results)
+
+    def test_cursor_supports_skip_and_limit_passthrough(self) -> None:
+        Foo.create(bar="aaa")
+        Foo.create(bar="ggg")
+        Foo.create(bar="zzz")
+        results = [f.bar for f in Foo.find().sort("bar").skip(1).limit(1)]
+        self.assertEqual(["ggg"], results)
+
+    def test_cursor_supports_close_passthrough(self) -> None:
+        for i in range(10):
+            Foo.create(bar="ggg")
+        cursor = Foo.find()
+        cursor.close()
+        with self.assertRaises(StopIteration):
+            cursor.next()
+
+    def test_cursor_supports_rewind_passthrough(self) -> None:
+        for i in range(10):
+            Foo.create(bar="ggg")
+        cursor = Foo.find()
+        results1 = list(cursor)
+        with self.assertRaises(StopIteration):
+            cursor.next()
+
+        cursor = cursor.rewind()
+        results2 = list(cursor)
+        self.assertEqual(results1, results2)
+
+    def test_cursor_supports_collation_passthrough(self) -> None:
+        for c in ["Z", "a", "B", "z", "A", "b"]:
+            Foo.create(bar=c)
+        cursor = Foo.find()
+        cursor = cursor.collation(Collation(locale="en_US"))
+        cursor.sort("bar")
+        results = [f.bar for f in cursor]
+        self.assertEqual(["a", "A", "b", "B", "z", "Z"], results)
+
+    def test_setattr_updates_field_values(self) -> None:
+        foo = Foo(bar="baz")
+        foo.save()
         self.assertIsNotNone(Foo.grab(foo.id))
-        setattr(foo, "bar", u"quz")
-        self.assertEqual(foo.bar, u"quz")
+        setattr(foo, "bar", "quz")
+        self.assertEqual(foo.bar, "quz")
         self.assertEqual(getattr(foo, "bar"), "quz")
-        foo.save(safe=True)
-        result = Foo.grab(foo.id)
+        foo.save()
+        result = self.assert_not_none(Foo.grab(foo.id))
         self.assertEqual(result.bar, "quz")
 
-    def test_save_over(self):
+    def test_save_updates_existing_entry(self) -> None:
         foo = Foo()
-        foo.bar = u'update'
-        foo.save(safe=True)
-        result = Foo.find_one({'bar': u'update'})
+        foo.bar = "update"
+        foo.save()
+        result = self.assert_not_none(Foo.find_one({"bar": "update"}))
         result["hidden"] = True
-        setattr(result, "bar", u"new update")
-        result.save(safe=True)
-        result2 = Foo.find_one({'bar': 'new update'})
+        setattr(result, "bar", "new update")
+        result.save()
+        result2 = self.assert_not_none(Foo.find_one({"bar": "new update"}))
         self.assertEqual(result.id, result2.id)
         self.assertEqual(result, result2)
         self.assertTrue(result["hidden"])
         self.assertTrue(result2["hidden"])
-        self.assertEqual(result2.bar, u'new update')
-        self.assertEqual(result.bar, u'new update')
+        self.assertEqual(result2.bar, "new update")
+        self.assertEqual(result.bar, "new update")
 
-    def test_flexible_fields(self):
-        """ Test that anything can be passed in """
+    def test_new_fields_added_to_model_with_global_auto_create(self) -> None:
         try:
             mogo.AUTO_CREATE_FIELDS = True
 
             class Flexible(Model):
                 pass
             instance = Flexible(foo="bar", age=5)
-            instance.save(safe=True)
+            instance.save()
             self.assertEqual(instance["foo"], "bar")
-            self.assertEqual(instance.foo, "bar")
+            self.assertEqual(instance.foo, "bar")  # type: ignore
             self.assertEqual(instance["age"], 5)
-            self.assertEqual(instance.age, 5)
+            self.assertEqual(instance.age, 5)  # type: ignore
 
-            retrieved = Flexible.find_one()
+            retrieved = self.assert_not_none(Flexible.find_one())
             self.assertEqual(retrieved, instance)
             # Test that the flexible fields were set
-            self.assertEqual(instance.foo, "bar")
-            self.assertEqual(instance.age, 5)
+            self.assertEqual(instance.foo, "bar")  # type: ignore
+            self.assertEqual(instance.age, 5)  # type: ignore
         finally:
             mogo.AUTO_CREATE_FIELDS = False
 
-    def test_flexible_fields_model_overwrite(self):
+    def test_new_fields_added_with_auto_create_on_model(self) -> None:
         """ Overwrite on a per-model basis """
         class Flexible(Model):
             AUTO_CREATE_FIELDS = True
 
         instance = Flexible.create(foo="bar", age=5)
-        self.assertEqual("bar", instance.foo)
-        self.assertEqual(5, instance.age)
+        self.assertEqual("bar", instance.foo)  # type: ignore
+        self.assertEqual(5, instance.age)  # type: ignore
 
-    def test_flexible_fields_model_overwrites_global(self):
+    def test_model_auto_create_setting_overrules_global_config(self) -> None:
         try:
             mogo.AUTO_CREATE_FIELDS = True
 
@@ -353,46 +414,48 @@ class MogoTests(unittest.TestCase):
         finally:
             mogo.AUTO_CREATE_FIELDS = False
 
-    def test_class_update(self):
+    def test_class_update_affects_all_matching_documents(self) -> None:
         class Mod(Model):
             val = Field(int)
             mod = Field(int)
 
         for i in range(100):
             foo = Mod(val=i, mod=i % 2)
-            foo.save(safe=True)
-        Mod.update({"mod": 1}, {"$set": {"mod": 0}}, safe=True)
-        self.assertEquals(Mod.search(mod=0).count(), 51)
-        Mod.update({"mod": 1}, {"$set": {"mod": 0}}, multi=True, safe=True)
-        self.assertEquals(Mod.search(mod=0).count(), 100)
+            foo.save()
+        Mod.update({"mod": 1}, {"$set": {"mod": 0}})
+        self.assertEqual(Mod.search(mod=0).count(), 51)
+        Mod.update(
+            {"mod": 1}, {"$set": {"mod": 0}}, multi=True)
+        self.assertEqual(Mod.search(mod=0).count(), 100)
 
-    def test_instance_update(self):
+    def test_instance_update_only_affects_single_instance(self) -> None:
         class Mod(Model):
             val = Field(int)
             mod = Field(int)
 
         for i in range(100):
             foo = Mod(val=i, mod=i % 2)
-            foo.save(safe=True)
-        foo = Mod.find_one({"mod": 1})
-        self.assertRaises(TypeError, foo.update, mod=u"testing", safe=True)
-        foo.update(mod=5, safe=True)
-        self.assertEquals(foo.mod, 5)
-        foo2 = Mod.grab(foo.id)
-        self.assertEquals(foo2.mod, 5)
-        self.assertEquals(Mod.search(mod=5).count(), 1)
+            foo.save()
+        foo = self.assert_not_none(Mod.find_one({"mod": 1}))
+        with self.assertRaises(TypeError):
+            foo.update(mod="testing")
+        foo.update(mod=5)
+        self.assertEqual(foo.mod, 5)
+        foo2 = self.assert_not_none(Mod.grab(foo.id))
+        self.assertEqual(foo2.mod, 5)
+        self.assertEqual(Mod.search(mod=5).count(), 1)
 
-    def test_cursor_update(self):
+    def test_cursor_update_affects_all_matching_documents(self) -> None:
         class Atomic(Model):
             value = Field(int)
-            key = Field(unicode, default=u"foo")
+            key = Field(str, default="foo")
             unchanged = Field(default="original")
 
         for i in range(10):
             atomic = Atomic(value=i)
             if i % 2:
-                atomic.key = u"bar"
-            atomic.save(safe=True)
+                atomic.key = "bar"
+            atomic.save()
 
         Atomic.find({"key": "bar"}).update({"$inc": {"value": 100}})
         Atomic.find({"key": "foo"}).change(key="wut")
@@ -401,72 +464,80 @@ class MogoTests(unittest.TestCase):
         self.assertEqual(5, Atomic.find({"value": {"$gt": 100}}).count())
         self.assertEqual(10, Atomic.find({"unchanged": "original"}).count())
 
-    def test_ref(self):
+    def test_reference_field_stores_dbref_and_returns_model(self) -> None:
         foo = Foo()
-        foo.bar = u"ref"
-        foo.save(safe=True)
-        new = Foo.find_one({"bar": "ref"})
-        new.ref = foo
-        new.save(safe=True)
-        result2 = Foo.find_one({"bar": "ref"})
-        self.assertEqual(result2.ref, foo)
+        foo.bar = "ref"
+        foo.save()
+        new = self.assert_not_none(Foo.find_one({"bar": "ref"}))
+        new.ref = foo  # type: ignore
+        new.save()
+        result2 = self.assert_not_none(Foo.find_one({"bar": "ref"}))
+        self.assertEqual(result2.ref, foo)  # type: ignore
 
-    def test_search(self):
-        nothing = Foo.search(bar=u'whatever').first()
+    def test_search_accepts_keywords(self) -> None:
+        nothing = Foo.search(bar="whatever").first()
         self.assertEqual(nothing, None)
         foo = Foo()
-        foo.bar = u"search"
-        foo.save(safe=True)
-        result = foo.search(bar=u"search")
+        foo.bar = "search"
+        foo.save()
+        result = foo.search(bar="search")
         self.assertEqual(result.count(), 1)
         self.assertEqual(result.first(), foo)
 
-    def test_search_before_new(self):
+    def test_search_populates_fields_to_verify_keywords(self) -> None:
         """ Testing the bug where fields are not populated before search. """
         class Bar(Model):
-            field = Field()
-        result_id = self._conn[DBNAME]["bar"].save({"field": "test"})
-        result = Bar.search(field="test").first()
+            field = Field[Any]()
+        insert_result = self._conn[DBNAME]["bar"].insert_one({"field": "test"})
+        result_id = insert_result.inserted_id
+        result = self.assert_not_none(Bar.search(field="test").first())
         self.assertEqual(result.id, result_id)
 
-    def test_bad_remove(self):
+    def test_remove_access_on_instance_raises_error(self) -> None:
         foo = Foo()
-        foo.bar = u"bad_remove"
-        foo.save(safe=True)
-        self.assertRaises(TypeError, getattr, args=(foo, 'remove'))
+        foo.bar = "bad_remove"
+        foo.save()
+        with self.assertRaises(TypeError):
+            getattr(foo, "remove")
 
-    def test_bad_drop(self):
+    def test_drop_access_on_instance_raises_error(self) -> None:
         foo = Foo()
-        foo.bar = u"bad_drop"
-        foo.save(safe=True)
-        self.assertRaises(TypeError, getattr, args=(foo, "drop"))
+        foo.bar = "bad_drop"
+        foo.save()
+        with self.assertRaises(TypeError):
+            getattr(foo, "drop")
 
-    def test_search_ref(self):
+    def test_search_accepts_model_instance_for_reference_field(self) -> None:
         company = Company(name="Foo, Inc.")
         company.save()
         user = Person(name="Test", email="whatever@whatever.com")
         user.company = company
-        user.save(safe=True)
+        user.save()
         self.assertEqual(company.people.count(), 1)
 
-    def test_group(self):
+    def test_group_passes_args_to_cursor_and_is_depreceted(self) -> None:
         db = self._conn[DBNAME]
         for i in range(100):
             obj = {"alt": i % 2, "count": i}
-            db.counter.save(obj)
+            db["counter"].insert_one(obj)
 
         class Counter(Model):
             pass
 
-        result = Counter.group(
-            key={'alt': 1},
-            condition={'alt': 0},
-            reduce='function (obj, prev) { prev.count += obj.count; }',
-            initial={'count': 0}
-        )
-        self.assertEqual(result[0]['count'], 2450)
+        with warnings.catch_warnings(record=True) as warn_entries:
+            warnings.simplefilter("always")
+            result = Counter.group(
+                key={"alt": 1},
+                condition={"alt": 0},
+                reduce="function (obj, prev) { prev.count += obj.count; }",
+                initial={"count": 0})
+            entries = self.assert_not_none(warn_entries)
+            self.assertEqual(1, len(entries))
+            self.assertTrue(
+                issubclass(entries[0].category, DeprecationWarning))
+        self.assertEqual(result[0]["count"], 2450)  # type: ignore
 
-    def test_order(self):
+    def test_order_on_cursor_accepts_field_keywords(self) -> None:
 
         class OrderTest(Model):
             up = Field(int)
@@ -486,99 +557,100 @@ class MogoTests(unittest.TestCase):
                 break
 
         self.assertEqual(results, [99, 98, 97, 96, 95])
-        mod_result = query2.first()
+        mod_result = self.assert_not_none(query2.first())
         self.assertEqual(mod_result.mod, 9)
         self.assertEqual(mod_result.up, 99)
 
-    def test_simple_inheritance(self):
+    def test_subclasses_store_in_parent_database(self) -> None:
         """ Test simple custom model inheritance """
         person = Person(name="Testing")
         subperson = SubPerson(name="Testing", another_field="foobar")
-        person.save(safe=True)
-        subperson.save(safe=True)
+        person.save()
+        subperson.save()
         self.assertEqual(Person.find().count(), 2)
-        # Doesn't automatically return instances of proper type yet
+        # Doesn"t automatically return instances of proper type yet
         self.assertEqual(Person.find()[0].name, "Testing")
-        self.assertEqual(Person.find()[1]['another_field'], "foobar")
+        self.assertEqual(Person.find()[1]["another_field"], "foobar")
 
-    def test_poly_model_inheritance(self):
+    def test_poly_models_construct_from_proper_class(self) -> None:
         """ Test the mogo support for model inheritance """
         self.assertEqual(Car._get_name(), SportsCar._get_name())
         self.assertEqual(Car._get_collection(), SportsCar._get_collection())
         car = Car()
         with self.assertRaises(NotImplementedError):
             car.drive()
-        # FIXME: Split these tests up.
         self.assertEqual(car.doors, 4)
         self.assertEqual(car.wheels, 4)
         self.assertEqual(car.type, "car")
-        car.save(safe=True)
+        car.save()
         self.assertEqual(Car.find().count(), 1)
-        car2 = Car.find().first()
+        car2 = self.assert_not_none(Car.find().first())
         self.assertEqual(car, car2)
         self.assertEqual(car.copy(), car2.copy())
         self.assertIsInstance(car2, Car)
         sportscar = SportsCar()
-        sportscar.save(safe=True)
+        sportscar.save()
         self.assertTrue(sportscar.drive())
         self.assertEqual(sportscar.doors, 2)
         self.assertEqual(sportscar.wheels, 4)
-        self.assertEqual(sportscar.type, "sportscar")
+        self.assertEqual(sportscar.type, "sportscar_value")
         self.assertEqual(SportsCar.find().count(), 1)
-        sportscar = SportsCar.find().first()
-        self.assertEqual(sportscar.doors, 2)
-        self.assertEqual(sportscar.type, "sportscar")
+        sportscar2 = self.assert_not_none(SportsCar.find().first())
+        self.assertEqual(sportscar2.doors, 2)
+        self.assertEqual(sportscar2.type, "sportscar_value")
         self.assertEqual(Car.find().count(), 2)
-        sportscar2 = Car.find({"doors": 2}).first()
-        self.assertIsInstance(sportscar2, SportsCar)
-        self.assertTrue(sportscar2.drive())
-        convertible = Car(type=u"convertible")
-        convertible.save(safe=True)
+        sportscar3 = self.assert_not_none(Car.find({"doors": 2}).first())
+        self.assertIsInstance(sportscar3, SportsCar)
+        self.assertTrue(sportscar3.drive())
+        convertible = cast(Convertible, Car(type="convertible"))
+        convertible.save()
         self.assertEqual(convertible.doors, 2)
         self.assertTrue(convertible.toggle_roof())
         self.assertFalse(convertible.toggle_roof())
 
         all_cars = list(Car.find())
         self.assertEqual(len(all_cars), 3)
-        car, sportscar, convertible = all_cars
-        self.assertIsInstance(car, Car)
-        self.assertIsInstance(sportscar, SportsCar)
-        self.assertIsInstance(convertible, Convertible)
+        self.assertIsInstance(all_cars[0], Car)
+        self.assertIsInstance(all_cars[1], SportsCar)
+        self.assertIsInstance(all_cars[2], Convertible)
 
         self.assertEqual(SportsCar.search().count(), 1)
-
         self.assertEqual(Convertible.find_one(), convertible)
+        self.assertEqual(SportsCar.first(), Car.first(type="sportscar_value"))
 
-    def test_representation_methods(self):
+    def test_all_string_representation_methods_call__unicode__(self) -> None:
         """ Test __repr__, __str__, and __unicode__ """
-        repr_result = Foo().__repr__()
+        repr_result = repr(Foo())
         str_result = Foo().__str__()
-        unicode_result = Foo().__unicode__()
+        str_fn_result = str(Foo())
+        unicode_fn_result = Foo().__unicode__()
         hypo = "FOOBAR"
-        self.assertTrue(repr_result == str_result == unicode_result == hypo)
+        self.assertTrue(
+            unicode_fn_result == repr_result == str_result ==
+            str_fn_result == hypo)
 
-    def test_session(self):
+    def test_model_use_supports_alternate_sessions(self) -> None:
         """ Test using a session on a model """
         foo = Foo()
-        foo.save(safe=True)
+        foo.save()
         self.assertEqual(Foo.find().count(), 1)
         session = mogo.session(ALTDB)
         session.connect()
         FooWrapped = Foo.use(session)
         self.assertEqual(FooWrapped._get_name(), Foo._get_name())
         self.assertEqual(FooWrapped.find().count(), 0)
-        coll = session.connection.get_collection("foo")
-        self.assertEqual(coll.find().count(), 0)
+        coll = cast(Connection, session.connection).get_collection("foo")
+        self.assertEqual(coll.count_documents({}), 0)
         foo2 = FooWrapped()
-        foo2.save(safe=True)
-        self.assertEqual(coll.find().count(), 1)
+        foo2.save()
+        self.assertEqual(coll.count_documents({}), 1)
         session.close()
 
-    def test_connection_with_statement(self):
+    def test_session_context_returns_session_instance(self) -> None:
         """ Test the with statement alternate connection """
         with mogo.session(ALTDB) as s:
-            foo = Foo.use(s)(bar=u"testing_with_statement")
-            foo.save(safe=True)
+            foo = Foo.use(s)(bar="testing_with_statement")
+            foo.save()
             results = Foo.use(s).find({"bar": "testing_with_statement"})
             self.assertEqual(results.count(), 1)
             result = results.first()
@@ -586,45 +658,51 @@ class MogoTests(unittest.TestCase):
         count = Foo.find().count()
         self.assertEqual(count, 0)
 
-    def test_constant_field(self):
-        """ Test the ConstantField """
+    def test_constant_field_allows_setting_before_saving(self) -> None:
         class ConstantModel(Model):
-            name = Field(unicode, required=True)
+            name = Field(str, required=True)
             constant = ConstantField(int, required=True)
 
-        # this is fine
-        model = ConstantModel(name=u"whatever", constant=10)
+        model = ConstantModel(name="whatever", constant=10)
         self.assertEqual(10, model.constant)
-        # as is this
         model.constant = 5
-        model.save(safe=True)
+        model.save()
         self.assertEqual(5, model.constant)
 
-        # this is also okay (since it's the same value)
+    def test_constant_field_allows_setting_to_same_value(self) -> None:
+        class ConstantModel(Model):
+            name = Field(str, required=True)
+            constant = ConstantField(int, required=True)
+
+        model = ConstantModel.create(name="whatever", constant=5)
         model.constant = 5
         self.assertEqual(5, model.constant)
-        # but this is not allowed
 
-        def set_constant():
+    def test_constant_field_cannot_be_changed_after_save(self) -> None:
+        class ConstantModel(Model):
+            name = Field(str, required=True)
+            constant = ConstantField(int, required=True)
+
+        model = ConstantModel.create(name="whatever", constant=5)
+
+        with self.assertRaises(ValueError):
             model.constant = 10
 
-        self.assertRaises(ValueError, set_constant)
         self.assertEqual(5, model.constant)
 
-    def test_custom_callbacks(self):
-        """ Test the various set and get callback options. """
-        class CustomField(Field):
+    def test_custom_callbacks_override_default_behavior(self) -> None:
+        class CustomField(Field[int]):
 
-            def _get_callback(self, instance, value):
+            def _get_callback(self, instance: Model, value: Any) -> int:
                 return 5
 
-            def _set_callback(self, instance, value):
+            def _set_callback(self, instance: Model, value: Any) -> int:
                 return 8
 
-        def custom_get(instance, value):
+        def custom_get(instance: Model, value: Any) -> int:
             return 1
 
-        def custom_set(instance, value):
+        def custom_set(instance: Model, value: Any) -> int:
             return 2
 
         class CustomModel(Model):
@@ -644,25 +722,34 @@ class MogoTests(unittest.TestCase):
         custom_model.custom3 = 15
         self.assertEqual(2, custom_model["custom3"])
 
-    def test_first(self):
+    def test_delete_field_by_key(self) -> None:
+        foo = Foo.create(bar="value")
+        result = Foo.first()
+        if result is None:
+            self.fail("Did not save Foo entry.")
+            return
+        self.assertEqual("value", foo["bar"])
+        del result["bar"]
+        result.save()
+        result = Foo.first()
+        if result is None:
+            self.fail("Did not retain Foo entry.")
+            return
+        self.assertNotIn("bar", result)
+
+    def test_first_returns_first_matching_instance(self) -> None:
         foo = Foo()
-        foo.bar = u"search"
-        foo.save(safe=True)
+        foo.bar = "search"
+        foo.save()
         for x in range(3):
             foo_x = Foo()
-            foo_x.bar = u"search"
-            foo_x.save(safe=True)
-        result = foo.first(bar=u"search")
+            foo_x.bar = "search"
+            foo_x.save()
+        result = foo.first(bar="search")
         self.assertEqual(result, foo)
 
-    def tearDown(self):
+    def tearDown(self) -> None:
         if DELETE:
             self._conn.drop_database(DBNAME)
             self._conn.drop_database(ALTDB)
         self._conn.close()
-
-if __name__ == '__main__':
-    if '--no-drop' in sys.argv:
-        DELETE = False
-        sys.argv.remove('--no-drop')
-    unittest.main()
