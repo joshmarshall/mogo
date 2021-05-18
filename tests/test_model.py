@@ -185,6 +185,26 @@ class TestModel(unittest.TestCase):
         with self.assertRaises(InvalidUpdateCall):
             foo.update(foo="bar")
 
+    def test_count_documents_passes_through(self) -> None:
+        expected = []
+        limit = 15
+        skip = 5
+
+        for i in range(50):
+            value = "b" if i % 2 == 1 else "a"
+            foo = Foo.create(required=value)
+            if i >= skip and foo.default == "b" and len(expected) < limit:
+                expected.append(foo)
+
+        query = {"required": "b"}
+
+        actual_count = Person.count_documents(
+            query, limit=limit, skip=skip)
+        self.assertEqual(actual_count, len(expected))
+
+        results = list(Person.find(query).limit(limit).skip(skip))
+        self.assertEqual(expected, results)
+
     def test_model_null_equality_comparison_is_false(self) -> None:
         foo = Foo()
         self.assertIsNotNone(foo)

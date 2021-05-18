@@ -578,6 +578,15 @@ class Model(metaclass=NewModelClass):
 
     @notinstancemethod
     @classmethod
+    def count_documents(
+            cls: Type[M],
+            filter: Optional[Dict[str, Any]] = None,
+            *args: Any,
+            **kwargs: Any) -> int:
+        return cls._get_collection().count_documents(filter, *args, **kwargs)
+
+    @notinstancemethod
+    @classmethod
     def make_ref(cls: Type[M], idval: Any) -> DBRef:
         """ Generates a DBRef for a given id. """
         if type(idval) != cls._id_type and callable(cls._id_type):
