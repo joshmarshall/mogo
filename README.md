@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/joshmarshall/mogo.png?branch=master)](https://travis-ci.org/joshmarshall/mogo)
+[![Build Status](https://circleci.com/gh/joshmarshall/mogo.svg?style=svg)](https://circleci.com/gh/joshmarshall/mogo)
 Mogo
 ====
 This library is a simple "schema-less" object wrapper around the
