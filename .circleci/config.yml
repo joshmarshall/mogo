@@ -12,7 +12,7 @@ jobs:
             - dev-cache-{{ checksum "tox.ini" }}
       - run:
           name: Install dev dependencies
-          command: pip3 install tox tox-pyenv flake8
+          command: pip3 install tox tox-pyenv
       - run: pyenv install --skip-existing 3.5-dev
       - run: pyenv install --skip-existing 3.6-dev
       - run: pyenv install --skip-existing 3.7-dev
@@ -27,10 +27,6 @@ jobs:
             - /home/circleci/.cache/pip
             - /home/circleci/.pyenv/versions/
             - /home/circleci/.local/lib/
-
-      - run:
-          command: flake8
-          name: Flake8 / linting
       - run:
           command: tox
           name: Run package tests across all python variants

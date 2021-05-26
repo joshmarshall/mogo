@@ -11,7 +11,7 @@ from pymongo.errors import OperationFailure
 import unittest
 import warnings
 
-from typing import Any, cast, Dict, Sequence
+from typing import Any, cast, Dict, List, Sequence
 
 
 class Ref(Model):
@@ -187,7 +187,7 @@ class TestModel(unittest.TestCase):
             foo.update(foo="bar")
 
     def test_count_documents_passes_through(self) -> None:
-        expected = []
+        expected: List[Foo] = []
         limit = 15
         skip = 5
 
@@ -199,7 +199,7 @@ class TestModel(unittest.TestCase):
 
         query = {"required": "b"}
 
-        actual_count = Person.count_documents(
+        actual_count: int = Person.count_documents(
             query, limit=limit, skip=skip)
         self.assertEqual(actual_count, len(expected))
 

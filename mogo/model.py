@@ -580,7 +580,7 @@ class Model(metaclass=NewModelClass):
     @classmethod
     def count_documents(
             cls: Type[M],
-            filter: Optional[Dict[str, Any]] = None,
+            filter: Dict[str, Any],
             *args: Any,
             **kwargs: Any) -> int:
         return cls._get_collection().count_documents(filter, *args, **kwargs)
