@@ -11,7 +11,7 @@ jobs:
             - dev-cache-{{ checksum "tox.ini" }}
       - run:
           name: Install dev dependencies
-          command: pip3 install tox tox-pyenv
+          command: pip3 install tox tox-pyenv flake8
       - run: pyenv install --skip-existing 3.5-dev
       - run: pyenv install --skip-existing 3.6-dev
       - run: pyenv install --skip-existing 3.7-dev
