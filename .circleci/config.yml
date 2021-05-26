@@ -4,6 +4,7 @@ jobs:
   build-and-test:
     docker:
       - image: cimg/python:3.9.2
+      - image: cimg/mongo:latest-ram
     steps:
       - checkout
       - restore_cache:
