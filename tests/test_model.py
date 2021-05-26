@@ -187,7 +187,7 @@ class TestModel(unittest.TestCase):
             foo.update(foo="bar")
 
     def test_count_documents_passes_through(self) -> None:
-        expected: List[Foo] = []
+        expected = []  # type: List[Foo]
         limit = 15
         skip = 5
 
@@ -199,8 +199,8 @@ class TestModel(unittest.TestCase):
 
         query = {"required": "b"}
 
-        actual_count: int = Person.count_documents(
-            query, limit=limit, skip=skip)
+        actual_count = Person.count_documents(
+            query, limit=limit, skip=skip)  # type: int
         self.assertEqual(actual_count, len(expected))
 
         results = list(Person.find(query).limit(limit).skip(skip))
