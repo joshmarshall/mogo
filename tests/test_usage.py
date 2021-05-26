@@ -21,6 +21,7 @@ from mogo.cursor import Cursor
 from mogo.model import UnknownField
 import pymongo
 from pymongo.collation import Collation
+from pymongo.errors import OperationFailure
 
 from typing import Any, cast, Optional, Type, TypeVar
 
@@ -524,18 +525,15 @@ class TestMogoGeneralUsage(unittest.TestCase):
         class Counter(Model):
             pass
 
-        with warnings.catch_warnings(record=True) as warn_entries:
-            warnings.simplefilter("always")
-            result = Counter.group(
-                key={"alt": 1},
-                condition={"alt": 0},
-                reduce="function (obj, prev) { prev.count += obj.count; }",
-                initial={"count": 0})
-            entries = self.assert_not_none(warn_entries)
-            self.assertEqual(1, len(entries))
-            self.assertTrue(
-                issubclass(entries[0].category, DeprecationWarning))
-        self.assertEqual(result[0]["count"], 2450)  # type: ignore
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            with self.assertRaises((DeprecationWarning, OperationFailure)):
+                result = Counter.group(
+                    key={"alt": 1},
+                    condition={"alt": 0},
+                    reduce="function (obj, prev) { prev.count += obj.count; }",
+                    initial={"count": 0})
+                self.assertEqual(result[0]["count"], 2450)  # type: ignore
 
     def test_order_on_cursor_accepts_field_keywords(self) -> None:
 

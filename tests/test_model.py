@@ -7,6 +7,7 @@ import mogo
 from mogo.connection import connect
 from mogo.model import PolyModel, Model, InvalidUpdateCall, UnknownField
 from mogo.field import ReferenceField, Field, EmptyRequiredField
+from pymongo.errors import OperationFailure
 import unittest
 import warnings
 
@@ -339,7 +340,7 @@ class TestModel(unittest.TestCase):
 
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            with self.assertRaises(DeprecationWarning):
+            with self.assertRaises((DeprecationWarning, OperationFailure)):
                 Person.group(
                     key={"age": 0},
                     condition={},
