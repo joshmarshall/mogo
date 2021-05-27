@@ -7,10 +7,11 @@ import mogo
 from mogo.connection import connect
 from mogo.model import PolyModel, Model, InvalidUpdateCall, UnknownField
 from mogo.field import ReferenceField, Field, EmptyRequiredField
+from pymongo.errors import OperationFailure
 import unittest
 import warnings
 
-from typing import Any, cast, Dict, Sequence
+from typing import Any, cast, Dict, List, Sequence
 
 
 class Ref(Model):
@@ -185,6 +186,26 @@ class TestModel(unittest.TestCase):
         with self.assertRaises(InvalidUpdateCall):
             foo.update(foo="bar")
 
+    def test_count_documents_passes_through(self) -> None:
+        expected = []  # type: List[Foo]
+        limit = 15
+        skip = 5
+
+        for i in range(50):
+            value = "b" if i % 2 == 1 else "a"
+            foo = Foo.create(required=value)
+            if i >= skip and foo.default == "b" and len(expected) < limit:
+                expected.append(foo)
+
+        query = {"required": "b"}
+
+        actual_count = Person.count_documents(
+            query, limit=limit, skip=skip)  # type: int
+        self.assertEqual(actual_count, len(expected))
+
+        results = list(Person.find(query).limit(limit).skip(skip))
+        self.assertEqual(expected, results)
+
     def test_model_null_equality_comparison_is_false(self) -> None:
         foo = Foo()
         self.assertIsNotNone(foo)
@@ -319,7 +340,7 @@ class TestModel(unittest.TestCase):
 
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            with self.assertRaises(DeprecationWarning):
+            with self.assertRaises((DeprecationWarning, OperationFailure)):
                 Person.group(
                     key={"age": 0},
                     condition={},

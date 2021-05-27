@@ -17,7 +17,7 @@ from distutils.core import setup
 
 setup(
     name='mogo',
-    version='0.5.0',
+    version='0.5.1',
     description='Simple PyMongo "schema-less" object wrapper',
     author='Josh Marshall',
     author_email='catchjosh@gmail.com',

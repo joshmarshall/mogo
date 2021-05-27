@@ -1,0 +1,47 @@
+version: 2.1
+
+jobs:
+  build-and-test:
+    docker:
+      - image: cimg/python:3.9.2
+      - image: circleci/mongo:latest-ram
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - dev-cache-{{ checksum "tox.ini" }}
+      - run:
+          name: Install dev dependencies
+          command: pip3 install tox tox-pyenv
+      - run: pyenv install --skip-existing 3.5-dev
+      - run: pyenv install --skip-existing 3.6-dev
+      - run: pyenv install --skip-existing 3.7-dev
+      - run: pyenv install --skip-existing 3.8-dev
+      - run: pyenv install --skip-existing 3.9-dev
+      - run:
+          name: Set local Python versions
+          command: pyenv local 3.5-dev 3.6-dev 3.7-dev 3.8-dev 3.9-dev 3.9.2
+      - save_cache:
+          key: dev-cache-{{ checksum "tox.ini" }}
+          paths:
+            - /home/circleci/.cache/pip
+            - /home/circleci/.pyenv/versions/
+            - /home/circleci/.local/lib/
+      - run:
+          command: tox
+          name: Run package tests across all python variants
+      - store_test_results:
+          path: reports
+      - run:
+          command: pip install build
+          name: Install build dependency
+      - run:
+          command: python3 -m build
+          name: Build source distribution
+      - store_artifacts:
+          path: ./dist
+
+workflows:
+  main:
+    jobs:
+      - build-and-test

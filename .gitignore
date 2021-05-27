@@ -8,3 +8,6 @@ dist/
 MANIFEST
 README.txt
 .mypy_cache/
+.tox
+reports/
+mogo.egg-info/
