@@ -1,10 +1,10 @@
-from mogo.helpers import check_none
+from mogo.helpers import check_none, MCursor
 
 from pymongo import ASCENDING, DESCENDING
 from pymongo.collation import Collation
 from pymongo.cursor import Cursor as PyCursor
 
-from typing import Any, cast, Dict, Generic, Iterator, List, Optional, Tuple
+from typing import Any, cast, Dict, Generic, List, Optional, Tuple
 from typing import Type, TypeVar, TYPE_CHECKING
 
 
@@ -17,11 +17,11 @@ T = TypeVar("T", bound="Model")
 class Cursor(Generic[T]):
     """ A simple wrapper around pymongo's Cursor class. """
 
-    _order_entries = []  # type: List[Tuple[str, int]]
-    _query = None  # type: Optional[Dict[str, Any]]
-    _model = None  # type: Optional[Type[T]]
-    _model_class = None  # type: Optional[Type[T]]
-    _cursor = None  # type: Optional[PyCursor]
+    _order_entries: List[Tuple[str, int]] = []
+    _query: Optional[Dict[str, Any]] = None
+    _model: Optional[Type[T]] = None
+    _model_class: Optional[Type[T]] = None
+    _cursor: Optional[MCursor] = None
 
     def __init__(
             self,
@@ -33,7 +33,7 @@ class Cursor(Generic[T]):
         self._query = spec
         self._model = model
         self._model_class = model
-        self._cursor = PyCursor(
+        self._cursor: MCursor = PyCursor(
             self._model_class._get_collection(), spec, *args, **kwargs)
 
     def __iter__(self) -> "Cursor[T]":
@@ -50,10 +50,7 @@ class Cursor(Generic[T]):
 
     def count(self) -> int:
         collection = check_none(self._model_class)._get_collection()
-        if hasattr(collection, "count_documents"):
-            return collection.count_documents(self._query or {})
-        # count on a cursor is deprecated, ultimately this will be removed
-        return check_none(self._cursor).count()
+        return collection.count_documents(self._query or {})
 
     # convenient because if it quacks like a list...
     def __len__(self) -> int:
@@ -73,9 +70,10 @@ class Cursor(Generic[T]):
         return self
 
     def first(self) -> Optional[T]:
-        if self.count() == 0:
+        try:
+            return self.next()
+        except StopIteration:
             return None
-        return self.next()
 
     def collation(self, collation: Collation) -> "Cursor[T]":
         check_none(self._cursor).collation(collation)
@@ -122,8 +120,8 @@ class Cursor(Generic[T]):
         modifier = {"$set": kwargs}
         return self.update(modifier)
 
-    def distinct(self, key: str) -> Iterator[Any]:
-        return cast(Iterator[Any], check_none(self._cursor).distinct(key))
+    def distinct(self, key: str) -> List[Any]:
+        return check_none(self._cursor).distinct(key)
 
 
 if TYPE_CHECKING:

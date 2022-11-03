@@ -10,7 +10,6 @@ probably want to change DBNAME. :)
 
 from datetime import datetime
 import unittest
-import warnings
 
 from bson.objectid import ObjectId
 import mogo
@@ -21,7 +20,6 @@ from mogo.cursor import Cursor
 from mogo.model import UnknownField
 import pymongo
 from pymongo.collation import Collation
-from pymongo.errors import OperationFailure
 
 from typing import Any, cast, Optional, Type, TypeVar
 
@@ -122,7 +120,13 @@ class Convertible(SportsCar):
 class TestMogoGeneralUsage(unittest.TestCase):
 
     def setUp(self) -> None:
-        self._conn = connect(DBNAME)
+        self._conn = Connection.connect(DBNAME)
+
+    def tearDown(self) -> None:
+        if DELETE:
+            self._conn.drop_database(DBNAME)
+            self._conn.drop_database(ALTDB)
+        Connection.disconnect()
 
     def assert_not_none(self, obj: Optional[T]) -> T:
         # this is just a custom version of assertIsNotNone that
@@ -136,24 +140,22 @@ class TestMogoGeneralUsage(unittest.TestCase):
         self.assertIsInstance(self._conn, pymongo.MongoClient)
         connection = Connection.instance()
         self.assertEqual(connection._database, DBNAME)
-        self._conn.close()
 
     def test_uri_connect_populates_database_values(self) -> None:
-        conn = connect(uri="mongodb://localhost/{}".format(DBNAME))
-        self.assertIsInstance(conn, pymongo.MongoClient)
-        connection = Connection.instance()
-        self.assertEqual(connection._database, DBNAME)
-        conn.close()
+        with connect(uri="mongodb://localhost/{}".format(DBNAME)) as conn:
+            self.assertIsInstance(conn, pymongo.MongoClient)
+            connection = Connection.instance()
+            self.assertEqual(connection._database, DBNAME)
         # overriding the database name
-        conn = connect(DBNAME, uri="mongodb://localhost/foobar")
-        self.assertIsInstance(conn, pymongo.MongoClient)
-        connection = Connection.instance()
-        self.assertEqual(connection._database, DBNAME)
-        conn.close()
+        with connect(DBNAME, uri="mongodb://localhost/foobar") as conn:
+            self.assertIsInstance(conn, pymongo.MongoClient)
+            connection = Connection.instance()
+            self.assertEqual(connection._database, DBNAME)
 
     def test_model_construction_populates_field_data(self) -> None:
         foo = Foo(bar="cheese")
-        self.assertEqual(foo.bar, "cheese")
+        bar = foo.bar + "nothing"
+        self.assertEqual(bar, "cheesenothing")
         self.assertEqual(foo.dflt, "dflt")
         self.assertEqual(foo.callme, "funtimes")
         self.assertIsInstance(foo.dtnow, datetime)
@@ -516,7 +518,7 @@ class TestMogoGeneralUsage(unittest.TestCase):
         user.save()
         self.assertEqual(company.people.count(), 1)
 
-    def test_group_passes_args_to_cursor_and_is_depreceted(self) -> None:
+    def test_group_raises_not_implemented_error(self) -> None:
         db = self._conn[DBNAME]
         for i in range(100):
             obj = {"alt": i % 2, "count": i}
@@ -525,15 +527,12 @@ class TestMogoGeneralUsage(unittest.TestCase):
         class Counter(Model):
             pass
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("error")
-            with self.assertRaises((DeprecationWarning, OperationFailure)):
-                result = Counter.group(
-                    key={"alt": 1},
-                    condition={"alt": 0},
-                    reduce="function (obj, prev) { prev.count += obj.count; }",
-                    initial={"count": 0})
-                self.assertEqual(result[0]["count"], 2450)  # type: ignore
+        with self.assertRaises(NotImplementedError):
+            Counter.group(
+                key={"alt": 1},
+                condition={"alt": 0},
+                reduce="function (obj, prev) { prev.count += obj.count; }",
+                initial={"count": 0})
 
     def test_order_on_cursor_accepts_field_keywords(self) -> None:
 
@@ -637,12 +636,13 @@ class TestMogoGeneralUsage(unittest.TestCase):
         FooWrapped = Foo.use(session)
         self.assertEqual(FooWrapped._get_name(), Foo._get_name())
         self.assertEqual(FooWrapped.find().count(), 0)
-        coll = cast(Connection, session.connection).get_collection("foo")
+        if session.connection is None:
+            self.fail("Session not connected.")
+        coll = session.connection.get_collection("foo")
         self.assertEqual(coll.count_documents({}), 0)
         foo2 = FooWrapped()
         foo2.save()
         self.assertEqual(coll.count_documents({}), 1)
-        session.close()
 
     def test_session_context_returns_session_instance(self) -> None:
         """ Test the with statement alternate connection """
@@ -745,9 +745,3 @@ class TestMogoGeneralUsage(unittest.TestCase):
             foo_x.save()
         result = foo.first(bar="search")
         self.assertEqual(result, foo)
-
-    def tearDown(self) -> None:
-        if DELETE:
-            self._conn.drop_database(DBNAME)
-            self._conn.drop_database(ALTDB)
-        self._conn.close()

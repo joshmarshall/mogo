@@ -7,7 +7,7 @@ import unittest
 from mogo import Field, ReferenceField, connect, Model, EnumField
 from mogo.field import EmptyRequiredField
 
-from typing import Any, cast, Optional, Sequence
+from typing import Any, Optional
 
 
 class Base(Model):
@@ -136,8 +136,7 @@ class MogoFieldTests(unittest.TestCase):
             instance = EnumModel1(field=False)
 
         class EnumModel2(Model):
-            field = EnumField(
-                lambda x: cast(Sequence[str], x.__class__.__name__))
+            field = EnumField(lambda x: x.__class__.__name__)
         EnumModel2(field="EnumModel2")
         with self.assertRaises(ValueError):
             EnumModel1(field="nottheclassname")

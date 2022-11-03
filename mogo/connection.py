@@ -1,9 +1,9 @@
 """ The wrapper for pymongo's connection stuff. """
 
+from mogo.helpers import MClient, MCollection, MDatabase
+
 from urllib.parse import urlparse
 from pymongo import MongoClient
-from pymongo.collection import Collection
-from pymongo.database import Database
 from pymongo.errors import ConnectionFailure
 
 from types import TracebackType
@@ -16,9 +16,16 @@ class Connection(object):
     a few shortcuts.
     """
 
-    _instance = None  # type: Optional['Connection']
-    _database = None  # type: Optional[str]
-    connection = None  # type: Optional[MongoClient]
+    _instance: Optional['Connection'] = None
+    _database: Optional[str] = None
+    connection: Optional[MClient] = None
+
+    @classmethod
+    def disconnect(cls) -> None:
+        instance = cls.instance()
+        if instance.connection is not None:
+            instance.connection.close()
+            instance.connection = None
 
     @classmethod
     def instance(cls) -> "Connection":
@@ -31,7 +38,7 @@ class Connection(object):
     def connect(
             cls, database: Optional[str] = None,
             uri: str = "mongodb://localhost:27017",
-            **kwargs: Any) -> MongoClient:
+            **kwargs: Any) -> MClient:
         """
         Wraps a pymongo connection.
         TODO: Allow some of the URI stuff.
@@ -48,7 +55,7 @@ class Connection(object):
         conn.connection = MongoClient(uri, **kwargs)
         return conn.connection
 
-    def get_database(self, database: Optional[str] = None) -> Database:
+    def get_database(self, database: Optional[str] = None) -> MDatabase:
         """ Retrieves a database from an existing connection. """
         if not self.connection:
             raise ConnectionFailure('No connection')
@@ -61,7 +68,7 @@ class Connection(object):
     def get_collection(
             self,
             collection: str,
-            database: Optional[str] = None) -> Collection:
+            database: Optional[str] = None) -> MCollection:
         """ Retrieve a collection from an existing connection. """
         return self.get_database(database=database)[collection]
 
@@ -69,10 +76,10 @@ class Connection(object):
 class Session(object):
     """ This class just wraps a connection instance """
 
-    connection = None  # type: Optional[Connection]
-    database = None  # type: Optional[str]
-    args = None  # type: Any
-    kwargs = None  # type: Any
+    connection: Optional[Connection] = None
+    database: Optional[str] = None
+    args: Any = None
+    kwargs: Any = None
 
     def __init__(self, database: str, *args: Any, **kwargs: Any) -> None:
         """ Stores a connection instance """
@@ -111,7 +118,7 @@ class Session(object):
         self.disconnect()
 
 
-def connect(*args: Any, **kwargs: Any) -> MongoClient:
+def connect(*args: Any, **kwargs: Any) -> MClient:
     """
     Initializes a connection and the database. It returns
     the pymongo connection object so that end_request, etc.

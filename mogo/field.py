@@ -2,7 +2,7 @@
 
 from bson.dbref import DBRef
 
-from typing import Any, Callable, cast, Generic, Optional
+from typing import Any, Callable, cast, Generic, Optional, overload
 from typing import Sequence, Type, TypeVar, TYPE_CHECKING, Union
 
 
@@ -10,9 +10,9 @@ S = TypeVar("S")  # serialized type
 T = TypeVar("T")  # interface type
 
 _DefaultCallback = Callable[[], T]
-_SetCallback = Callable[["Model", Optional[T]], Any]
-_GetCallback = Callable[["Model", Any], Optional[T]]
-_CoerceCallback = Callable[[Any], Optional[T]]
+_SetCallback = Callable[["Model", T], Any]
+_GetCallback = Callable[["Model", Any], T]
+_CoerceCallback = Callable[[Any], T]
 
 
 class EmptyRequiredField(Exception):
@@ -28,7 +28,7 @@ class _NoDefault(object):
     pass
 
 
-NO_DEFAULT = _NoDefault()  # type: _NoDefault
+NO_DEFAULT = _NoDefault()
 
 
 _DefaultOptions = Union[_NoDefault, _DefaultCallback[T], T]
@@ -42,14 +42,14 @@ class Field(Generic[T]):
     application-friendly values.
     """
 
-    value_type = None  # type: Optional[Type[T]]
-    id = 0  # type: int
-    _field_name = None  # type: Optional[str]
-    __set_callback = None  # type: Optional[_SetCallback[T]]
-    __get_callback = None  # type: Optional[_GetCallback[T]]
-    __coerce_callback = None  # type: Optional[_CoerceCallback[T]]
-    __default = None  # type: Optional[_DefaultOptions[T]]
-    __required = False  # type: bool
+    value_type: Optional[Type[T]] = None
+    id: int = 0
+    _field_name: Optional[str] = None
+    __set_callback: Optional[_SetCallback[T]] = None
+    __get_callback: Optional[_GetCallback[T]] = None
+    __coerce_callback: Optional[_CoerceCallback[T]] = None
+    __default: _DefaultOptions[T] = NO_DEFAULT
+    __required: bool = False
 
     def __init__(
             self,
@@ -59,7 +59,7 @@ class Field(Generic[T]):
             get_callback: Optional[_GetCallback[T]] = None,
             coerce_callback: Optional[_CoerceCallback[T]] = None,
             field_name: Optional[str] = None,
-            default: Optional[_DefaultOptions[T]] = NO_DEFAULT,
+            default: _DefaultOptions[T] = NO_DEFAULT,
             **kwargs: Any) -> None:
         self.value_type = value_type or self.value_type
         self._field_name = field_name
@@ -70,11 +70,22 @@ class Field(Generic[T]):
         self.__default = default
         self.id = id(self)
 
+    @overload
+    def __get__(
+            self, instance: "Model",
+            klass: Optional[Type["Model"]] = None) -> T:
+        pass
+
+    @overload
+    def __get__(
+            self, instance: None,
+            klass: Optional[Type["Model"]] = None) -> "Field[T]":
+        pass
+
     def __get__(
             self,
-            instance: "Model",
-            klass: Optional[Type["Model"]] = None) -> \
-            Union['Field[T]', Any]:
+            instance: Optional["Model"],
+            klass: Optional[Type["Model"]] = None) -> Union["Field[T]", T]:
         if instance is None:
             # Classes see the descriptor itself
             return self
@@ -82,10 +93,10 @@ class Field(Generic[T]):
         return value
 
     def _get_default(self) -> T:
-        if self.__default == NO_DEFAULT:
+        if isinstance(self.__default, _NoDefault):
             raise NoDefaultValue("No default value for field")
-        if not callable(self.__default):
-            return cast(T, self.__default)
+        elif not callable(self.__default):
+            return self.__default
         else:
             return self.__default()
 
@@ -93,9 +104,9 @@ class Field(Generic[T]):
         """ Try to retrieve field name from instance """
         if self._field_name:
             return self._field_name
-        return model_instance._get_fields()[self.id]
+        return model_instance._get_fields()[self.id][0]
 
-    def _get_value(self, instance: "Model") -> Optional[T]:
+    def _get_value(self, instance: "Model") -> T:
         """ Retrieve the value from the instance """
         field_name = self._get_field_name(instance)
         if field_name not in instance:
@@ -145,19 +156,19 @@ class Field(Generic[T]):
 
     def get_callback(
             self, instance: "Model",
-            value: Optional[Any]) -> Optional[T]:
+            value: Any) -> T:
         if self.__get_callback is not None:
             return self.__get_callback(instance, value)
         return self._get_callback(instance, value)
 
     def set_callback(
             self, instance: "Model",
-            value: Optional[T]) -> Optional[Any]:
+            value: T) -> Any:
         if self.__set_callback is not None:
             return self.__set_callback(instance, value)
         return self._set_callback(instance, value)
 
-    def coerce_callback(self, value: Any) -> Optional[T]:
+    def coerce_callback(self, value: Any) -> T:
         if self.__coerce_callback is not None:
             return self.__coerce_callback(value)
         return self._coerce_callback(value)
@@ -167,19 +178,19 @@ class Field(Generic[T]):
 
     def _get_callback(
             self, instance: "Model",
-            value: Any) -> Optional[T]:
-        return cast(Optional[T], value)
+            value: Any) -> T:
+        return cast(T, value)
 
     def _set_callback(
             self, instance: "Model",
-            value: Optional[T]) -> Any:
+            value: T) -> Any:
         return value
 
-    def _coerce_callback(self, value: Any) -> Optional[T]:
-        return cast(Optional[T], value)
+    def _coerce_callback(self, value: Any) -> T:
+        return cast(T, value)
 
 
-class ReferenceField(Field["Model"]):
+class ReferenceField(Field[Optional["Model"]]):
     """ Simply holds information about the reference model. """
 
     def __init__(self, model: Type["Model"], **kwargs: Any) -> None:
@@ -207,10 +218,10 @@ class ReferenceField(Field["Model"]):
         return None
 
 
-class ConstantField(Field[Any]):
+class ConstantField(Field[T]):
     """ Doesn't let you change the value after setting it. """
 
-    def _set_callback(self, instance: "Model", value: Any) -> Any:
+    def _set_callback(self, instance: "Model", value: T) -> T:
         """ Block changing values from being set. """
         if instance._get_id() and value is not self._get_value(instance):
             raise ValueError("Constant fields cannot be altered after saving.")
@@ -234,7 +245,7 @@ class EnumField(Field[S]):
 
     """
 
-    iterable = []  # type: _EnumOptions[S]
+    iterable: _EnumOptions[S] = []
 
     def __init__(self, iterable: _EnumOptions[S], **kwargs: Any) -> None:
         super(EnumField, self).__init__(**kwargs)
@@ -242,9 +253,9 @@ class EnumField(Field[S]):
 
     def _set_callback(
             self, instance: "Model",
-            value: Optional[S]) -> Optional[S]:
+            value: S) -> S:
         """ Checks for value in iterable. """
-        accepted_values = []  # type: Sequence[S]
+        accepted_values: Sequence[S] = []
         if callable(self.iterable):
             accepted_values = self.iterable(instance)
         else:

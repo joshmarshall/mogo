@@ -7,11 +7,10 @@ import mogo
 from mogo.connection import connect
 from mogo.model import PolyModel, Model, InvalidUpdateCall, UnknownField
 from mogo.field import ReferenceField, Field, EmptyRequiredField
-from pymongo.errors import OperationFailure
 import unittest
 import warnings
 
-from typing import Any, cast, Dict, List, Sequence
+from typing import Any, List
 
 
 class Ref(Model):
@@ -130,12 +129,13 @@ class TestModel(unittest.TestCase):
     def test_model_fields_initialize_properly(self) -> None:
         """ Test that the model properly retrieves the fields """
         foo = Foo()
-        self.assertIn("field", foo._fields.values())
-        self.assertIn("required", foo._fields.values())
-        self.assertIn("callback", foo._fields.values())
-        self.assertIn("reference", foo._fields.values())
-        self.assertIn("default", foo._fields.values())
-        self.assertIn("_private_field", foo._fields.values())
+        field_names = list(foo._fields_by_name.keys())
+        self.assertIn("field", field_names)
+        self.assertIn("required", field_names)
+        self.assertIn("callback", field_names)
+        self.assertIn("reference", field_names)
+        self.assertIn("default", field_names)
+        self.assertIn("_private_field", field_names)
 
     def test_model_create_fields_inititialize_new_fields_with_autocreate(
             self) -> None:
@@ -187,7 +187,7 @@ class TestModel(unittest.TestCase):
             foo.update(foo="bar")
 
     def test_count_documents_passes_through(self) -> None:
-        expected = []  # type: List[Foo]
+        expected: List[Foo] = []
         limit = 15
         skip = 5
 
@@ -200,7 +200,7 @@ class TestModel(unittest.TestCase):
         query = {"required": "b"}
 
         actual_count = Person.count_documents(
-            query, limit=limit, skip=skip)  # type: int
+            query, limit=limit, skip=skip)
         self.assertEqual(actual_count, len(expected))
 
         results = list(Person.find(query).limit(limit).skip(skip))
@@ -247,7 +247,7 @@ class TestModel(unittest.TestCase):
         if not result:
             self.fail("Did not save Foo instance with custom _id.")
 
-        idval = cast(ObjectId, result.id)
+        idval = result.id
         self.assertEqual(idval, custom_id)
 
     def test_inheritance_constructs_proper_polymorphic_instances(self) -> None:
@@ -315,7 +315,7 @@ class TestModel(unittest.TestCase):
         result = Infant.aggregate([
             {"$match": {"age": {"$lte": 10}}},
             {"$group": {"_id": "$role", "total_age": {"$sum": "$age"}}}
-        ])  # type: Sequence[Dict[str, Any]]
+        ])
         self.assertEqual([{"_id": "infant", "total_age": 15}], list(result))
 
     def test_parent_model_aggregates_across_submodels(self) -> None:
@@ -325,7 +325,7 @@ class TestModel(unittest.TestCase):
         Infant.create(age=1)
         result = Person.aggregate([
             {"$group": {"_id": "$role", "total_age": {"$sum": "$age"}}}
-        ])  # type: Sequence[Dict[str, Any]]
+        ])
         self.assertCountEqual(
             [
                 {"_id": "adult", "total_age": 74},
@@ -333,19 +333,17 @@ class TestModel(unittest.TestCase):
             ],
             list(result))
 
-    def test_group_raises_deprecation_warning(self) -> None:
+    def test_group_raises_not_implemented(self) -> None:
         Adult.create(age=24)
         Adult.create(age=50)
         Infant.create(age=5)
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("error")
-            with self.assertRaises((DeprecationWarning, OperationFailure)):
-                Person.group(
-                    key={"age": 0},
-                    condition={},
-                    reduce="function (obj, prev) { prev.age += obj.age; }",
-                    initial={"age": 0})
+        with self.assertRaises(NotImplementedError):
+            Person.group(
+                key={"age": 0},
+                condition={},
+                reduce="function (obj, prev) { prev.age += obj.age; }",
+                initial={"age": 0})
 
     def test_find_one_and_find_raise_warning_with_timeout(self) -> None:
         with warnings.catch_warnings():
