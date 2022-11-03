@@ -70,8 +70,8 @@ workflows:
       - test-3-9
       - test-3-10
       - test-3-11
-      - build
-          requires
+      - build:
+          requires:
             - test-3-9
             - test-3-10
             - test-3-11
