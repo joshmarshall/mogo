@@ -3,7 +3,7 @@ version: 2.1
 jobs:
   test-3-9:
     docker:
-      - image: cimg/python:3.10.13
+      - image: cimg/python:3.10
       - image: mongo:latest
     steps:
       - checkout
@@ -18,7 +18,7 @@ jobs:
 
   test-3-10:
     docker:
-      - image: cimg/python:3.10.5
+      - image: cimg/python:3.10
       - image: mongo:latest
     steps:
       - checkout
@@ -48,8 +48,7 @@ jobs:
 
   build:
     docker:
-      - image: cimg/python:3.11
-      - image: mongo:latest
+      - image: cimg/python:3.10
     steps:
       - checkout
       - run:
