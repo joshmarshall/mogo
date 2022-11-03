@@ -1,7 +1,37 @@
 version: 2.1
 
 jobs:
-  build-and-test:
+  test-3.9:
+    docker:
+      - image: cimg/python:3.10.13
+      - image: mongo:latest
+    steps:
+      - checkout
+      - run:
+          name: Install dev dependencies
+          command: pip3 install tox tox-pyenv
+      - run:
+          command: tox
+          name: Run package tests across all python variants
+      - store_test_results:
+          path: reports
+
+  test-3.10:
+    docker:
+      - image: cimg/python:3.10.5
+      - image: mongo:latest
+    steps:
+      - checkout
+      - run:
+          name: Install dev dependencies
+          command: pip3 install tox tox-pyenv
+      - run:
+          command: tox
+          name: Run package tests across all python variants
+      - store_test_results:
+          path: reports
+
+  test-3.11:
     docker:
       - image: cimg/python:3.11
       - image: mongo:latest
@@ -10,17 +40,21 @@ jobs:
       - run:
           name: Install dev dependencies
           command: pip3 install tox tox-pyenv
-      - run: pyenv install --skip-existing 3.9.13
-      - run: pyenv install --skip-existing 3.10.5
-      - run: pyenv install --skip-existing 3.11-dev
-      - run:
-          name: Set local Python versions
-          command: pyenv local 3.9.13 3.10.5 3.11-dev
       - run:
           command: tox
           name: Run package tests across all python variants
       - store_test_results:
           path: reports
+
+  build:
+    docker:
+      - image: cimg/python:3.11
+      - image: mongo:latest
+    steps:
+      - checkout
+      - run:
+          name: Install dev dependencies
+          command: pip3 install tox tox-pyenv
       - run:
           command: pip install build
           name: Install build dependency
@@ -33,4 +67,11 @@ jobs:
 workflows:
   main:
     jobs:
-      - build-and-test
+      - test-3.9
+      - test-3.10
+      - test-3.11
+      - build
+          requires
+            - test-3.9
+            - test-3.10
+            - test-3.11
