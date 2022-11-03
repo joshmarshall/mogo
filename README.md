@@ -15,25 +15,25 @@ Mogo is licensed under the Apache License, Version 2.0
 (http://www.apache.org/licenses/LICENSE-2.0.html).
 
 ## RELEASE NOTES ##
-As of the most recent release (0.5.0+), this only supports Python 3.5+, and
-PyMongo 3.0+. If you are upgrading, be sure to test thoroughly, as internals
-have changed somewhat, and PyMongo has deprecated a number of methods and
+As of the most recent release (0.6.0+), this only supports Python 3.9+, and
+PyMongo 4.1+. If you are upgrading, be sure to test thoroughly, as internals
+have changed somewhat, and PyMongo has removed a number of methods and
 arguments.
 
 
 Features
 --------
 * Put classes / structure around pymongo results
-* Models are dicts, so dot-attribute or key access is valid. Dot attribute
-  gives "smart" values, key access gives "raw" pymongo values.
+* Models are dict (like), so dot-attribute or key access is valid. Dot
+  attribute gives "smart" values, key access gives "raw" pymongo values.
 * Support for specifiying Field() attributes without requiring
   them or enforcing types.
 * Simple ReferenceField implementation.
 
 Requirements
 ------------
-* Python 3.5+
-* PyMongo - http://github.com/mongodb/mongo-python-driver
+* Python 3.9+
+* PyMongo 4.1+ - http://github.com/mongodb/mongo-python-driver
 
 Installation
 ------------
@@ -61,7 +61,7 @@ file.
 You will also need `mypy` and `flake8` if you are running the full suite of
 typechecking and linting.
 
-After installation, or from the root project directory, run:
+From the root project directory, run:
 
 ```sh
 make test

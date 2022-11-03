@@ -25,5 +25,5 @@ setup(
     license="http://www.apache.org/licenses/LICENSE-2.0",
     package_data={"mogo": ["py.typed"]},
     packages=['mogo', ],
-    install_requires=["pymongo>=3.0"],
+    install_requires=["pymongo>=4.1"],
     zip_safe=False)

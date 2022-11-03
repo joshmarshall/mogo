@@ -1,5 +1,5 @@
 """
-This is really the core of the library. It's just a dict subclass
+This is really the core of the library. It's just a dict-like base class
 with a few wrapper methods. The idea is that you can access everything
 like normal in pymongo if you wanted to, with keys aplenty, or you can
 access values with attribute-style syntax.
@@ -40,15 +40,14 @@ from mogo.connection import Connection, Session
 from mogo.decorators import notinstancemethod
 from mogo.cursor import Cursor
 from mogo.field import Field, EmptyRequiredField
-from mogo.helpers import check_none
+from mogo.helpers import check_none, MCollection, MDict
 
 from bson.dbref import DBRef
 from bson.objectid import ObjectId
-from pymongo.collection import Collection
 from pymongo.results import DeleteResult, UpdateResult
 
 import typing
-from typing import Any, Callable, cast, Dict, Iterator
+from typing import Any, Callable, cast, Dict, Iterator, List
 from typing import Optional, Sequence, Tuple, Type, TypeVar, Union
 
 
@@ -90,18 +89,17 @@ class UnknownField(Exception):
 class NewModelClass(type):
     """ Metaclass for inheriting field lists """
 
-    def __new__(  # type: ignore
+    def __new__(
             cls,
             name: str,
             bases: Tuple[type, ...],
-            attributes: Dict[str, Any]) -> Type[M]:
+            attributes: Dict[str, Any]) -> "NewModelClass":
         # Emptying fields by default
         attributes["__fields"] = {}
-        new_model = cast(
-            Type[M],
-            super().__new__(cls, name, bases, attributes))  # type: Type[M]
-        # pre-populate fields
-        new_model._update_fields()
+        new_model = super().__new__(cls, name, bases, attributes)
+        if hasattr(new_model, "_update_fields"):
+            # pre-populate fields
+            cast("Model", new_model)._update_fields()
         if hasattr(new_model, "_child_models"):
             new_model._child_models = {}
         return new_model
@@ -109,9 +107,9 @@ class NewModelClass(type):
     def __setattr__(cls, name: str, value: Any) -> None:
         """ Catching new field additions to classes """
         super().__setattr__(name, value)
-        if isinstance(value, Field):
+        if isinstance(value, Field) and hasattr(cls, "_child_models"):
             # Update the fields, because they have changed
-            cast(Type[Model], cls)._update_fields()
+            cast(Model, cls)._update_fields()
 
 
 class Model(metaclass=NewModelClass):
@@ -122,60 +120,70 @@ class Model(metaclass=NewModelClass):
     class Foo(Model):
         pass
 
-    foo = Foo(user='admin', password='cheese')
+    foo = Foo(user='admin', name='Foo Bar')
     foo.save()
     for result in Foo.find({'user':'admin'}):
-        print result.password
+        print(result.name)
     """
 
-    _id_field = "_id"  # type: str
-    _id_type = ObjectId  # type: Any
-    _name = None  # type: Optional[str]
-    _pymongo_data = None  # type: Optional[Dict[str, Any]]
-    _collection = None  # type: Optional[Collection]
-    _child_models = None  # type: Optional[Dict[Any, Type["PolyModel"]]]
-    _init_okay = False  # type: bool
-    __fields = None  # type: Optional[Dict[int, str]]
+    _id_field: str = "_id"
+    _id_type: Any = ObjectId
+    _name: Optional[str] = None
+    _pymongo_data: Optional[MDict]
+    _collection: Optional[MCollection] = None
+    _child_models: Optional[Dict[str, Type["PolyModel"]]] = None
+    _init_okay: bool = False
+    __fields: Optional[Dict[int, Tuple[str, "Field[Any]"]]] = None
 
-    AUTO_CREATE_FIELDS = None  # type: Optional[bool]
+    AUTO_CREATE_FIELDS: Optional[bool] = None
 
     # DEPRECATED
     @classmethod
     def new(cls: Type[M], **kwargs: Any) -> M:
         """ Overwrite in each model for custom instantiaion logic """
-        instance = cls(**kwargs)  # type: M
+        instance = cls(**kwargs)
         return instance
+
+    @classmethod
+    def _update_fields(cls) -> None:
+        """ (Re)update the list of fields """
+        cls.__fields = {}
+        for attr_key in dir(cls):
+            attr = getattr(cls, attr_key)
+            if not isinstance(attr, Field):
+                continue
+            cls.__fields[attr.id] = (attr_key, attr)
 
     # Dict-compatibility methods
 
-    def get(self: M, key: str, default: Optional[Any] = None) -> Optional[Any]:
+    def get(self, key: str, default: Optional[Any] = None) -> Optional[Any]:
         return check_none(self._pymongo_data).get(key, default)
 
-    def copy(self: M) -> Dict[str, Any]:
+    def copy(self) -> Dict[str, Any]:
         return check_none(self._pymongo_data).copy()
 
-    def __setitem__(self: M, key: str, value: Any) -> None:
+    def __setitem__(self, key: str, value: Any) -> None:
         check_none(self._pymongo_data).__setitem__(key, value)
 
-    def __getitem__(self: M, key: str) -> Any:
+    def __getitem__(self, key: str) -> Any:
         return check_none(self._pymongo_data).__getitem__(key)
 
-    def __delitem__(self: M, key: str) -> Any:
+    def __delitem__(self, key: str) -> Any:
         return check_none(self._pymongo_data).__delitem__(key)
 
-    def __contains__(self: M, item: str) -> bool:
+    def __contains__(self, item: str) -> bool:
         return check_none(self._pymongo_data).__contains__(item)
 
-    def __hash__(self: M) -> Any:
+    def __hash__(self) -> Any:
         hash_impl = check_none(self._pymongo_data).__hash__
         if hash_impl is None:
             return None
         return hash_impl()
 
-    def __len__(self: M) -> int:
+    def __len__(self) -> int:
         return check_none(self._pymongo_data).__len__()
 
-    def __iter__(self: M) -> Iterator[str]:
+    def __iter__(self) -> Iterator[str]:
         return check_none(self._pymongo_data).__iter__()
 
     # Model methods
@@ -193,7 +201,7 @@ class Model(metaclass=NewModelClass):
         if connection is None:
             raise Exception("No connection for session.")
         collection = connection.get_collection(
-            Wrapped._get_name())  # type: Collection
+            Wrapped._get_name())
         Wrapped._collection = collection
         return Wrapped
 
@@ -201,22 +209,23 @@ class Model(metaclass=NewModelClass):
     def create(cls: Type[M], **kwargs: Any) -> M:
         """ Create a new model and save it. """
         if hasattr(cls, "new"):
-            model = cls.new(**kwargs)  # type: M
+            model = cls.new(**kwargs)
         else:
             model = cls(**kwargs)
         model.save()
         return model
 
-    def __init__(self: M, **kwargs: Any) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         """ Creates an instance of the model, without saving it. """
         super().__init__()
         self._pymongo_data = {}
         # compute once
         create_fields = self._auto_create_fields
         is_new_instance = self._id_field not in kwargs
+        fields = self._fields_by_name
         for field, value in kwargs.items():
             if is_new_instance:
-                if field in self._fields.values():
+                if field in fields:
                     # Running validation, if the field exists
                     setattr(self, field, value)
                 else:
@@ -227,36 +236,30 @@ class Model(metaclass=NewModelClass):
             else:
                 self[field] = value
 
-        for field_name in self._fields.values():
+        for field_name in fields.keys():
             attr = getattr(self.__class__, field_name)
-            self._fields[attr.id] = field_name
+            self._fields[attr.id] = (field_name, attr)
 
             # set the default
             attr._set_default(self, field_name)
 
     @classmethod
-    def _get_fields(cls: Type[M]) -> Dict[int, str]:
+    def _get_fields(cls: Type[M]) -> Dict[int, Tuple[str, "Field[Any]"]]:
         return check_none(cls.__fields)
 
     @property
-    def _auto_create_fields(self: M) -> bool:
+    def _auto_create_fields(self) -> bool:
         if self.AUTO_CREATE_FIELDS is not None:
             return self.AUTO_CREATE_FIELDS
         return mogo.AUTO_CREATE_FIELDS
 
     @property
-    def _fields(self: M) -> Dict[int, str]:
-        return self._get_fields()
+    def _fields_by_name(self) -> Dict[str, "Field[Any]"]:
+        return dict(self._fields.values())
 
-    @classmethod
-    def _update_fields(cls: Type[M]) -> None:
-        """ (Re)update the list of fields """
-        cls.__fields = {}
-        for attr_key in dir(cls):
-            attr = getattr(cls, attr_key)
-            if not isinstance(attr, Field):
-                continue
-            cls.__fields[attr.id] = attr_key
+    @property
+    def _fields(self) -> Dict[int, Tuple[str, "Field[Any]"]]:
+        return self._get_fields()
 
     @classmethod
     def add_field(
@@ -264,11 +267,11 @@ class Model(metaclass=NewModelClass):
             field_name: str,
             new_field_descriptor: Any) -> None:
         """ Adds a new field to the class """
-        assert(isinstance(new_field_descriptor, Field))
+        assert isinstance(new_field_descriptor, Field)
         setattr(cls, field_name, new_field_descriptor)
         cls._update_fields()
 
-    def _get_id(self: M) -> Optional[Any]:
+    def _get_id(self) -> Optional[Any]:
         """
         This is the internal id retrieval.
         The .id property is the public method for getting
@@ -277,7 +280,7 @@ class Model(metaclass=NewModelClass):
         """
         return self.get(self._id_field)
 
-    def save(self: M, *args: Any, **kwargs: Any) -> Any:
+    def save(self, *args: Any, **kwargs: Any) -> Any:
         """ Passthru to PyMongo's save after checking values """
         coll = self._get_collection()
         self._check_required()
@@ -301,12 +304,12 @@ class Model(metaclass=NewModelClass):
         if "safe" in kwargs:
             warn_about_keyword_deprecation("safe")
             del kwargs["safe"]
-        coll = cls._get_collection()  # type: Collection
+        coll = cls._get_collection()
         if "multi" in kwargs and kwargs.pop("multi") is True:
             return coll.update_many(*args, **kwargs)
         return coll.update_one(*args, **kwargs)
 
-    def _instance_update(self: M, **kwargs: Any) -> UpdateResult:
+    def _instance_update(self, **kwargs: Any) -> UpdateResult:
         """ Wraps keyword arguments with setattr and then uses PyMongo's
         update call.
          """
@@ -319,8 +322,9 @@ class Model(metaclass=NewModelClass):
             warn_about_keyword_deprecation("safe")
         body = {}
         checks = []
+        field_names = list(self._fields_by_name.keys())
         for key, value in kwargs.items():
-            if key in self._fields.values():
+            if key in field_names:
                 setattr(self, key, value)
             else:
                 logging.warning("No field for {}".format(key))
@@ -338,22 +342,20 @@ class Model(metaclass=NewModelClass):
 
     update = BiContextualUpdate()
 
-    def _check_required(self: M, *field_args: str) -> None:
+    def _check_required(self, *field_args: str) -> None:
         """ Ensures that all required fields are set. """
-        field_names = list(field_args)  # type: Sequence[str]
-        if not field_names:
-            field_names = list(self._fields.values())
-        for field_name in field_names:
+        for field_name, field in self._fields_by_name.items():
+            if len(field_args) > 0 and field_name not in field_args:
+                continue
             # check that required attributes have been set before,
             # or are currently being set
-            field = cast("Field[Any]", getattr(self.__class__, field_name))
             storage_name = field._get_field_name(self)
             if storage_name not in self:
                 if field._is_required():
                     raise EmptyRequiredField(
                         "'{}' is required but empty".format(field_name))
 
-    def delete(self: M, *args: Any, **kwargs: Any) -> DeleteResult:
+    def delete(self, *args: Any, **kwargs: Any) -> DeleteResult:
         """
         Uses the id in the collection.remove method.
         Allows all the same arguments (except the spec/id).
@@ -397,7 +399,7 @@ class Model(metaclass=NewModelClass):
     # This is designed so that the end user can still use 'id' as a Field
     # if desired. All internal use should use model._get_id()
     @property
-    def id(self: M) -> Optional[Any]:
+    def id(self) -> Optional[Any]:
         """
         Returns the id. This is designed so that a subclass can still
         overwrite 'id' if desired... internal use should only use
@@ -424,10 +426,9 @@ class Model(metaclass=NewModelClass):
         if "timeout" in kwargs:
             warn_about_keyword_deprecation("timeout")
             del kwargs["timeout"]
-        coll = cls._get_collection()  # type: Collection
-        find_result = coll.find_one(
-            *args, **kwargs)  # type: Optional[Dict[str, Any]]
-        result = None  # type: Optional[M]
+        coll = cls._get_collection()
+        find_result = coll.find_one(*args, **kwargs)
+        result: Optional[M] = None
         if find_result is not None:
             result = cls(**find_result)
         return result
@@ -456,8 +457,7 @@ class Model(metaclass=NewModelClass):
             cls: Type[M],
             *args: Any,
             **kwargs: Any) -> Iterator[Dict[str, Any]]:
-        # This is deprecated, and will be removed from PyMongo in version 4.0
-        return cls._get_collection().group(*args, **kwargs)
+        raise NotImplementedError("`group` was removed from PyMongo.")
 
     @notinstancemethod
     @classmethod
@@ -489,8 +489,8 @@ class Model(metaclass=NewModelClass):
     @classmethod
     def search_or_create(cls: Type[M], **kwargs: Any) -> M:
         "search for an instance that matches kwargs or make one with __init__"
-        cursor = cls.search(**kwargs)  # type: Cursor[M]
-        obj = cursor.first()  # type: Optional[M]
+        cursor = cls.search(**kwargs)
+        obj = cursor.first()
         if obj is not None:
             return obj
         return cls.create(**kwargs)
@@ -498,7 +498,7 @@ class Model(metaclass=NewModelClass):
     @classmethod
     def first(cls: Type[M], **kwargs: Any) -> Optional[M]:
         """ Helper for returning Blah.search(foo=bar).first(). """
-        result = cls.search(**kwargs)  # type: Cursor[M]
+        result = cls.search(**kwargs)
         return result.first()
 
     @classmethod
@@ -524,20 +524,18 @@ class Model(metaclass=NewModelClass):
         return cls._get_collection().drop_indexes(*args, **kwargs)
 
     @classmethod
-    def distinct(cls: Type[M], key: str) -> Iterator[Any]:
+    def distinct(cls: Type[M], key: str) -> List[Any]:
         """ Wrapper for collection distinct() """
         return cls.find().distinct(key)
 
     # Map Reduce and Group methods eventually go here.
 
     @classmethod
-    def _get_collection(cls: Type[M]) -> Collection:
-        """ Connects and caches the collection connection object. """
-        if not cls._collection:
-            conn = Connection.instance()
-            coll = conn.get_collection(cls._get_name())  # type: Collection
-            cls._collection = coll
-        return cls._collection
+    def _get_collection(cls: Type[M]) -> MCollection:
+        if cls._collection is not None:
+            # Should only be sessions now
+            return cls._collection
+        return Connection.instance().get_collection(cls._get_name())
 
     @classmethod
     def _get_name(cls: Type[M]) -> str:
@@ -549,7 +547,7 @@ class Model(metaclass=NewModelClass):
             return cls._name
         return cls.__name__.lower()
 
-    def __eq__(self: M, other: Any) -> bool:
+    def __eq__(self, other: Any) -> bool:
         """
         This method compares two objects names and id values.
         If they match, they are "equal".
@@ -567,7 +565,7 @@ class Model(metaclass=NewModelClass):
             return True
         return False
 
-    def __ne__(self: M, other: Any) -> bool:
+    def __ne__(self, other: Any) -> bool:
         """ Returns the inverse of __eq__ ."""
         return not self.__eq__(other)
 
@@ -576,7 +574,7 @@ class Model(metaclass=NewModelClass):
     def count(cls: Type[M]) -> int:
         return cls.find().count()
 
-    @notinstancemethod
+    @notinstancemethod[int]
     @classmethod
     def count_documents(
             cls: Type[M],
@@ -591,33 +589,38 @@ class Model(metaclass=NewModelClass):
         """ Generates a DBRef for a given id. """
         if type(idval) != cls._id_type and callable(cls._id_type):
             # Casting to ObjectId (or str, or whatever is configured)
-            id_type = cast(Callable[..., M], cls._id_type)
+            id_type = cls._id_type
             idval = id_type(idval)
         return DBRef(cls._get_name(), idval)
 
-    def get_ref(self: M) -> DBRef:
+    def get_ref(self) -> DBRef:
         """ Returns a DBRef for an document. """
         idval = self._get_id()
         if idval is not None:
             return DBRef(self._get_name(), idval)
         raise Exception("Missing object ID -- cannot retrieve DBRef.")
 
-    def __unicode__(self: M) -> str:
+    def __unicode__(self) -> str:
         """ Returns string representation. Overwrite in custom models. """
         return "<MogoModel:{} id:{}>".format(self._get_name(), self._get_id())
 
-    def __str__(self: M) -> str:
+    def __str__(self) -> str:
         return self.__unicode__()
 
-    def __repr__(self: M) -> str:
+    def __repr__(self) -> str:
         return self.__unicode__()
+
+
+class _PolyInfo(typing.TypedDict):
+    parent: Type["PolyModel"]
+    name: str
+    value: Any
 
 
 class PolyModel(Model):
     """ A base class for inherited models """
 
-    _polyinfo = None  \
-        # type: Optional[Dict[str, Union[str, Type["PolyModel"]]]]
+    _polyinfo: Optional[_PolyInfo] = None
 
     def __new__(cls: Type[P], **kwargs: Any) -> P:
         """ Creates a model of the appropriate type """
@@ -630,7 +633,7 @@ class PolyModel(Model):
                 key = key_field._get_default()
             if key in cls._child_models:
                 create_class = cast(Type[P], cls._child_models[key])
-        return cast(P, super().__new__(create_class))
+        return super().__new__(create_class)
 
     @classmethod
     def get_child_key(cls: Type[P]) -> str:
@@ -671,7 +674,7 @@ class PolyModel(Model):
                 return _wrap_polymodel(cls, poly_name, value, child_cls)
             return wrap
         elif issubclass(value, cls):
-            child_cls = cast(Type[P], value)
+            child_cls = value
             name = child_cls.__name__.lower()
             value = name
             return _wrap_polymodel(cls, name, value, child_cls)
@@ -686,7 +689,7 @@ class PolyModel(Model):
         spec = spec or {}
         if cls._polyinfo is not None:
             value = cls._polyinfo["value"]
-            polyclass = cast(P, cls._polyinfo["parent"])
+            polyclass = cls._polyinfo["parent"]
             spec.setdefault(polyclass.get_child_key(), value)
         return spec
 

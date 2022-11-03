@@ -20,10 +20,10 @@ lint: $(INPUT_FILES)
 
 
 typecheck: $(INPUT_FILES)
-	MYPYPATH=stubs $(PYTHON_TYPE_CHECK) $(FILE)
+	$(PYTHON_TYPE_CHECK) $(FILE)
 
 
 typecheck-tests: $(INPUT_FILES)
-	MYPYPATH=stubs $(PYTHON_TYPE_CHECK) $(TEST_FILE)
+	$(PYTHON_TYPE_CHECK) $(TEST_FILE)
 
 .PHONY: test lint typecheck
