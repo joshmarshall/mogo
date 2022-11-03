@@ -9,9 +9,9 @@ jobs:
       - checkout
       - run:
           name: Install dev dependencies
-          command: pip3 install tox tox-pyenv
+          command: pip3 install -r requirements.txt -r dev-requirements.txt
       - run:
-          command: tox
+          command: make all
           name: Run package tests across all python variants
       - store_test_results:
           path: reports
@@ -24,9 +24,9 @@ jobs:
       - checkout
       - run:
           name: Install dev dependencies
-          command: pip3 install tox tox-pyenv
+          command: pip3 install -r requirements.txt -r dev-requirements.txt
       - run:
-          command: tox
+          command: make all
           name: Run package tests across all python variants
       - store_test_results:
           path: reports
@@ -39,9 +39,9 @@ jobs:
       - checkout
       - run:
           name: Install dev dependencies
-          command: pip3 install tox tox-pyenv
+          command: pip3 install -r requirements.txt -r dev-requirements.txt
       - run:
-          command: tox
+          command: make all
           name: Run package tests across all python variants
       - store_test_results:
           path: reports
@@ -52,9 +52,6 @@ jobs:
       - image: mongo:latest
     steps:
       - checkout
-      - run:
-          name: Install dev dependencies
-          command: pip3 install tox tox-pyenv
       - run:
           command: pip install build
           name: Install build dependency
