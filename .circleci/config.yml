@@ -1,7 +1,7 @@
 version: 2.1
 
 jobs:
-  test-3.9:
+  test-3-9:
     docker:
       - image: cimg/python:3.10.13
       - image: mongo:latest
@@ -16,7 +16,7 @@ jobs:
       - store_test_results:
           path: reports
 
-  test-3.10:
+  test-3-10:
     docker:
       - image: cimg/python:3.10.5
       - image: mongo:latest
@@ -31,7 +31,7 @@ jobs:
       - store_test_results:
           path: reports
 
-  test-3.11:
+  test-3-11:
     docker:
       - image: cimg/python:3.11
       - image: mongo:latest
@@ -67,11 +67,11 @@ jobs:
 workflows:
   main:
     jobs:
-      - test-3.9
-      - test-3.10
-      - test-3.11
+      - test-3-9
+      - test-3-10
+      - test-3-11
       - build
           requires
-            - test-3.9
-            - test-3.10
-            - test-3.11
+            - test-3-9
+            - test-3-10
+            - test-3-11
