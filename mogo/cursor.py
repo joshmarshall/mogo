@@ -52,10 +52,7 @@ class Cursor(Generic[T]):
 
     def count(self) -> int:
         collection = check_none(self._model_class)._get_collection()
-        if hasattr(collection, "count_documents"):
-            return collection.count_documents(self._query or {})
-        # count on a cursor is deprecated, ultimately this will be removed
-        return check_none(self._cursor).count()
+        return collection.count_documents(self._query or {})
 
     # convenient because if it quacks like a list...
     def __len__(self) -> int:
