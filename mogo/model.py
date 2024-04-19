@@ -533,7 +533,7 @@ class Model(metaclass=NewModelClass):
     @classmethod
     def _get_collection(cls: Type[M]) -> Collection:
         """ Connects and caches the collection connection object. """
-        if not cls._collection:
+        if cls._collection is None:
             conn = Connection.instance()
             coll = conn.get_collection(cls._get_name())  # type: Collection
             cls._collection = coll
