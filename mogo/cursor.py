@@ -4,8 +4,10 @@ from pymongo import ASCENDING, DESCENDING
 from pymongo.collation import Collation
 from pymongo.cursor import Cursor as PyCursor
 
-from typing import Any, cast, Dict, Generic, Iterator, List, Optional, Tuple
+from typing import Any, cast, Dict, Generic, Iterator, Optional
 from typing import Type, TypeVar, TYPE_CHECKING
+
+from typing import List, Tuple  # noqa: F401
 
 
 ASC = ASCENDING

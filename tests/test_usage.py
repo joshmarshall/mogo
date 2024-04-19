@@ -10,7 +10,6 @@ probably want to change DBNAME. :)
 
 from datetime import datetime
 import unittest
-import warnings
 
 from bson.objectid import ObjectId
 import mogo
@@ -21,7 +20,6 @@ from mogo.cursor import Cursor
 from mogo.model import UnknownField
 import pymongo
 from pymongo.collation import Collation
-from pymongo.errors import OperationFailure
 
 from typing import Any, cast, Optional, Type, TypeVar
 

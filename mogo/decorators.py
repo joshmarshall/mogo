@@ -2,7 +2,7 @@
 Just various decorators.
 """
 
-from typing import Any, cast, Callable, Optional, Type, TypeVar, Union
+from typing import Any, Callable, Optional, Type, TypeVar, Union
 
 
 T = TypeVar("T")

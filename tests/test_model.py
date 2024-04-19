@@ -7,11 +7,11 @@ import mogo
 from mogo.connection import connect
 from mogo.model import PolyModel, Model, InvalidUpdateCall, UnknownField
 from mogo.field import ReferenceField, Field, EmptyRequiredField
-from pymongo.errors import OperationFailure
 import unittest
 import warnings
 
-from typing import Any, cast, Dict, List, Sequence
+from typing import Any, cast
+from typing import Dict, List, Sequence  # noqa: F401
 
 
 class Ref(Model):
