@@ -264,7 +264,7 @@ class Model(metaclass=NewModelClass):
             field_name: str,
             new_field_descriptor: Any) -> None:
         """ Adds a new field to the class """
-        assert(isinstance(new_field_descriptor, Field))
+        assert isinstance(new_field_descriptor, Field)
         setattr(cls, field_name, new_field_descriptor)
         cls._update_fields()
 
@@ -496,7 +496,7 @@ class Model(metaclass=NewModelClass):
     @classmethod
     def grab(cls: Type[M], object_id: Any) -> Optional[M]:
         """ A shortcut to retrieve one object by its id. """
-        if type(object_id) != cls._id_type:
+        if not isinstance(object_id, cls._id_type):
             object_id = cls._id_type(object_id)
         return cls.find_one({cls._id_field: object_id})
 
@@ -581,7 +581,7 @@ class Model(metaclass=NewModelClass):
     @classmethod
     def make_ref(cls: Type[M], idval: Any) -> DBRef:
         """ Generates a DBRef for a given id. """
-        if type(idval) != cls._id_type and callable(cls._id_type):
+        if not isinstance(idval, cls._id_type) and callable(cls._id_type):
             # Casting to ObjectId (or str, or whatever is configured)
             id_type = cast(Callable[..., M], cls._id_type)
             idval = id_type(idval)
