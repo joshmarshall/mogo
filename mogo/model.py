@@ -90,7 +90,7 @@ class UnknownField(Exception):
 class NewModelClass(type):
     """ Metaclass for inheriting field lists """
 
-    def __new__(  # type: ignore
+    def __new__(
             cls,
             name: str,
             bases: Tuple[type, ...],
@@ -622,7 +622,7 @@ class PolyModel(Model):
                 key = key_field._get_default()
             if key in cls._child_models:
                 create_class = cast(Type[P], cls._child_models[key])
-        return cast(P, super().__new__(create_class))
+        return super().__new__(create_class)
 
     @classmethod
     def get_child_key(cls: Type[P]) -> str:
@@ -663,7 +663,7 @@ class PolyModel(Model):
                 return _wrap_polymodel(cls, poly_name, value, child_cls)
             return wrap
         elif issubclass(value, cls):
-            child_cls = cast(Type[P], value)
+            child_cls = value
             name = child_cls.__name__.lower()
             value = name
             return _wrap_polymodel(cls, name, value, child_cls)
