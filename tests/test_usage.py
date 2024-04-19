@@ -21,7 +21,7 @@ from mogo.model import UnknownField
 import pymongo
 from pymongo.collation import Collation
 
-from typing import Any, cast, Optional, Type, TypeVar
+from typing import Any, cast, Optional, overload, Type, TypeVar
 
 
 T = TypeVar("T")
@@ -122,11 +122,18 @@ class TestMogoGeneralUsage(unittest.TestCase):
     def setUp(self) -> None:
         self._conn = connect(DBNAME)
 
+    @overload
+    def assert_not_none(self, obj: Optional[T]) -> T:
+        ...
+
+    @overload
+    def assert_not_none(self, obj: Any) -> Any:
+        ...
+
     def assert_not_none(self, obj: Optional[T]) -> T:
         # this is just a custom version of assertIsNotNone that
         # returns the object of the correct type if it's not null
-        if obj is None:
-            self.fail("Object unexpectedly none.")
+        assert obj is not None
         return obj
 
     def test_connect_populates_database(self) -> None:

@@ -132,7 +132,7 @@ class Model(metaclass=NewModelClass):
     _id_type = ObjectId  # type: Any
     _name = None  # type: Optional[str]
     _pymongo_data = None  # type: Optional[Dict[str, Any]]
-    _collection = None  # type: Optional[Collection]
+    _collection = None  # type: Optional[Collection[Any]]
     _child_models = None  # type: Optional[Dict[Any, Type["PolyModel"]]]
     _init_okay = False  # type: bool
     __fields = None  # type: Optional[Dict[int, str]]
@@ -193,7 +193,7 @@ class Model(metaclass=NewModelClass):
         if connection is None:
             raise Exception("No connection for session.")
         collection = connection.get_collection(
-            Wrapped._get_name())  # type: Collection
+            Wrapped._get_name())  # type: Collection[Any]
         Wrapped._collection = collection
         return Wrapped
 
@@ -301,7 +301,7 @@ class Model(metaclass=NewModelClass):
         if "safe" in kwargs:
             warn_about_keyword_deprecation("safe")
             del kwargs["safe"]
-        coll = cls._get_collection()  # type: Collection
+        coll = cls._get_collection()  # type: Collection[Any]
         if "multi" in kwargs and kwargs.pop("multi") is True:
             return coll.update_many(*args, **kwargs)
         return coll.update_one(*args, **kwargs)
@@ -424,7 +424,7 @@ class Model(metaclass=NewModelClass):
         if "timeout" in kwargs:
             warn_about_keyword_deprecation("timeout")
             del kwargs["timeout"]
-        coll = cls._get_collection()  # type: Collection
+        coll = cls._get_collection()  # type: Collection[Any]
         find_result = coll.find_one(
             *args, **kwargs)  # type: Optional[Dict[str, Any]]
         result = None  # type: Optional[M]
@@ -523,7 +523,7 @@ class Model(metaclass=NewModelClass):
     # Map Reduce and Group methods eventually go here.
 
     @classmethod
-    def _get_collection(cls: Type[M]) -> Collection:
+    def _get_collection(cls: Type[M]) -> Collection[Any]:
         """ Connects and caches the collection connection object. """
         if cls._collection is not None:
             return cls._collection

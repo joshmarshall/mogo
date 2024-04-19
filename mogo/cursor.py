@@ -23,7 +23,7 @@ class Cursor(Generic[T]):
     _query = None  # type: Optional[Dict[str, Any]]
     _model = None  # type: Optional[Type[T]]
     _model_class = None  # type: Optional[Type[T]]
-    _cursor = None  # type: Optional[PyCursor]
+    _cursor = None  # type: Optional[PyCursor[Any]]
 
     def __init__(
             self,
