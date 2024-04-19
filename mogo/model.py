@@ -451,14 +451,6 @@ class Model(metaclass=NewModelClass):
 
         return Cursor(cls, *args, **kwargs)
 
-    @classmethod
-    def group(
-            cls: Type[M],
-            *args: Any,
-            **kwargs: Any) -> Iterator[Dict[str, Any]]:
-        # This is deprecated, and will be removed from PyMongo in version 4.0
-        return cls._get_collection().group(*args, **kwargs)
-
     @notinstancemethod
     @classmethod
     def aggregate(

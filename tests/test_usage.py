@@ -516,25 +516,6 @@ class TestMogoGeneralUsage(unittest.TestCase):
         user.save()
         self.assertEqual(company.people.count(), 1)
 
-    def test_group_passes_args_to_cursor_and_is_depreceted(self) -> None:
-        db = self._conn[DBNAME]
-        for i in range(100):
-            obj = {"alt": i % 2, "count": i}
-            db["counter"].insert_one(obj)
-
-        class Counter(Model):
-            pass
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("error")
-            with self.assertRaises((DeprecationWarning, OperationFailure)):
-                result = Counter.group(
-                    key={"alt": 1},
-                    condition={"alt": 0},
-                    reduce="function (obj, prev) { prev.count += obj.count; }",
-                    initial={"count": 0})
-                self.assertEqual(result[0]["count"], 2450)  # type: ignore
-
     def test_order_on_cursor_accepts_field_keywords(self) -> None:
 
         class OrderTest(Model):
