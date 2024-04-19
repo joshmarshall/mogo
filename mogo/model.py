@@ -529,7 +529,7 @@ class Model(metaclass=NewModelClass):
             return cls._collection
 
         conn = Connection.instance()
-        return conn.get_collection(cls._get_name())  # type: Collection
+        return conn.get_collection(cls._get_name())
 
     @classmethod
     def _get_name(cls: Type[M]) -> str:
