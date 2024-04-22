@@ -17,7 +17,7 @@ jobs:
             python --version > pythonversion
       - restore_cache:
           keys:
-            - v1-python-{{ checksum "pythonversion" }}-dependencies-{{ checksum "requirements.txt" }}-{{ checksum "dev-requirements.txt" }}
+            - v1-python-{{ checksum "pythonversion" }}-dependencies-{{ checksum "setup.py" }}-{{ checksum "dev-requirements.txt" }}
       - run:
           name: Install Dependencies
           command: |
@@ -28,7 +28,7 @@ jobs:
       - save_cache:
           paths:
             - ~/venv
-          key: v1-python-{{ checksum "pythonversion" }}-dependencies-{{ checksum "requirements.txt" }}-{{ checksum "dev-requirements.txt" }}
+          key: v1-python-{{ checksum "pythonversion" }}-dependencies-{{ checksum "setup.py" }}-{{ checksum "dev-requirements.txt" }}
       - run:
           name: Run Tests
           command: |
