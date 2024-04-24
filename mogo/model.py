@@ -40,7 +40,7 @@ from mogo.connection import Connection, Session
 from mogo.decorators import notinstancemethod
 from mogo.cursor import Cursor
 from mogo.field import Field, EmptyRequiredField
-from mogo.helpers import check_none
+from mogo.helpers import check_none, Document
 
 from bson.dbref import DBRef
 from bson.objectid import ObjectId
@@ -131,8 +131,8 @@ class Model(metaclass=NewModelClass):
     _id_field = "_id"  # type: str
     _id_type = ObjectId  # type: Any
     _name = None  # type: Optional[str]
-    _pymongo_data = None  # type: Optional[Dict[str, Any]]
-    _collection = None  # type: Optional[Collection[Any]]
+    _pymongo_data: Optional[dict[str, Any]] = None
+    _collection: Optional[Collection[Document]] = None
     _child_models = None  # type: Optional[Dict[Any, Type["PolyModel"]]]
     _init_okay = False  # type: bool
     __fields = None  # type: Optional[Dict[int, str]]
@@ -456,7 +456,7 @@ class Model(metaclass=NewModelClass):
     def aggregate(
             cls: Type[M],
             pipeline: Sequence[Dict[str, Any]],
-            **kwargs: Any) -> Iterator[Dict[str, Any]]:
+            **kwargs: Any) -> Iterator[Document]:
         return cls._get_collection().aggregate(pipeline, **kwargs)
 
     @classmethod
@@ -523,7 +523,7 @@ class Model(metaclass=NewModelClass):
     # Map Reduce and Group methods eventually go here.
 
     @classmethod
-    def _get_collection(cls: Type[M]) -> Collection[Any]:
+    def _get_collection(cls: Type[M]) -> Collection[Document]:
         """ Connects and caches the collection connection object. """
         if cls._collection is not None:
             return cls._collection

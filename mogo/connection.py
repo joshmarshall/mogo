@@ -1,5 +1,7 @@
 """ The wrapper for pymongo's connection stuff. """
 
+from mogo.helpers import Document
+
 from urllib.parse import urlparse
 from pymongo import MongoClient
 from pymongo.collection import Collection
@@ -18,7 +20,7 @@ class Connection(object):
 
     _instance = None  # type: Optional['Connection']
     _database = None  # type: Optional[str]
-    connection = None  # type: Optional[MongoClient[Any]]
+    connection: Optional[MongoClient[Document]] = None
 
     @classmethod
     def instance(cls) -> "Connection":
@@ -31,7 +33,7 @@ class Connection(object):
     def connect(
             cls, database: Optional[str] = None,
             uri: str = "mongodb://localhost:27017",
-            **kwargs: Any) -> MongoClient[Any]:
+            **kwargs: Any) -> MongoClient[Document]:
         """
         Wraps a pymongo connection.
         TODO: Allow some of the URI stuff.
@@ -48,7 +50,10 @@ class Connection(object):
         conn.connection = MongoClient(uri, **kwargs)
         return conn.connection
 
-    def get_database(self, database: Optional[str] = None) -> Database[Any]:
+    def get_database(
+        self,
+        database: Optional[str] = None
+    ) -> Database[Document]:
         """ Retrieves a database from an existing connection. """
         if not self.connection:
             raise ConnectionFailure('No connection')
@@ -61,7 +66,7 @@ class Connection(object):
     def get_collection(
             self,
             collection: str,
-            database: Optional[str] = None) -> Collection[Any]:
+            database: Optional[str] = None) -> Collection[Document]:
         """ Retrieve a collection from an existing connection. """
         return self.get_database(database=database)[collection]
 
@@ -111,7 +116,7 @@ class Session(object):
         self.disconnect()
 
 
-def connect(*args: Any, **kwargs: Any) -> MongoClient[Any]:
+def connect(*args: Any, **kwargs: Any) -> MongoClient[Document]:
     """
     Initializes a connection and the database. It returns
     the pymongo connection object so that end_request, etc.

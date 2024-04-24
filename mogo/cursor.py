@@ -1,4 +1,4 @@
-from mogo.helpers import check_none
+from mogo.helpers import check_none, Document
 
 from pymongo import ASCENDING, DESCENDING
 from pymongo.collation import Collation
@@ -23,7 +23,7 @@ class Cursor(Generic[T]):
     _query = None  # type: Optional[Dict[str, Any]]
     _model = None  # type: Optional[Type[T]]
     _model_class = None  # type: Optional[Type[T]]
-    _cursor = None  # type: Optional[PyCursor[Any]]
+    _cursor: Optional[PyCursor[Document]] = None
 
     def __init__(
             self,
