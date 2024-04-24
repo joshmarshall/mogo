@@ -4,7 +4,7 @@ from pymongo import ASCENDING, DESCENDING
 from pymongo.collation import Collation
 from pymongo.cursor import Cursor as PyCursor
 
-from typing import Any, cast, Dict, Generic, Iterator, Optional
+from typing import Any, cast, Dict, Generic, Optional
 from typing import Type, TypeVar, TYPE_CHECKING
 
 from typing import List, Tuple  # noqa: F401
@@ -122,8 +122,8 @@ class Cursor(Generic[T]):
         modifier = {"$set": kwargs}
         return self.update(modifier)
 
-    def distinct(self, key: str) -> Iterator[Any]:
-        return cast(Iterator[Any], check_none(self._cursor).distinct(key))
+    def distinct(self, key: str) -> list[Any]:
+        return check_none(self._cursor).distinct(key)
 
 
 if TYPE_CHECKING:

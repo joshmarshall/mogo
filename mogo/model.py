@@ -516,7 +516,7 @@ class Model(metaclass=NewModelClass):
         return cls._get_collection().drop_indexes(*args, **kwargs)
 
     @classmethod
-    def distinct(cls: Type[M], key: str) -> Iterator[Any]:
+    def distinct(cls: Type[M], key: str) -> list[Any]:
         """ Wrapper for collection distinct() """
         return cls.find().distinct(key)
 
