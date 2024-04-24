@@ -526,6 +526,7 @@ class Model(metaclass=NewModelClass):
     def _get_collection(cls: Type[M]) -> Collection[Document]:
         """ Connects and caches the collection connection object. """
         if cls._collection is not None:
+            # Use collection provided by Session, if available.
             return cls._collection
 
         conn = Connection.instance()
