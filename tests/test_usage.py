@@ -122,6 +122,12 @@ class TestMogoGeneralUsage(unittest.TestCase):
     def setUp(self) -> None:
         self._conn = connect(DBNAME)
 
+    def tearDown(self) -> None:
+        if DELETE:
+            self._conn.drop_database(DBNAME)
+            self._conn.drop_database(ALTDB)
+        self._conn.close()
+
     @overload
     def assert_not_none(self, obj: Optional[T]) -> T:
         ...
@@ -730,9 +736,3 @@ class TestMogoGeneralUsage(unittest.TestCase):
             foo_x.save()
         result = foo.first(bar="search")
         self.assertEqual(result, foo)
-
-    def tearDown(self) -> None:
-        if DELETE:
-            self._conn.drop_database(DBNAME)
-            self._conn.drop_database(ALTDB)
-        self._conn.close()
