@@ -66,12 +66,6 @@ workflows:
   main:
     jobs:
       - test:
-          name: test-3.7
-          python_version: "3.7"
-      - test:
-          name: test-3.8
-          python_version: "3.8"
-      - test:
           name: test-3.9
           python_version: "3.9"
       - test:
