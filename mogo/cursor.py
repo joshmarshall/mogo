@@ -72,9 +72,10 @@ class Cursor(Generic[T]):
         return self
 
     def first(self) -> Optional[T]:
-        if self.count() == 0:
+        try:
+            return self.next()
+        except StopIteration:
             return None
-        return self.next()
 
     def collation(self, collation: Collation) -> "Cursor[T]":
         check_none(self._cursor).collation(collation)
