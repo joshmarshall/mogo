@@ -17,7 +17,7 @@ from distutils.core import setup
 
 setup(
     name='mogo',
-    version='0.5.1',
+    version='0.6.0',
     description='Simple PyMongo "schema-less" object wrapper',
     author='Josh Marshall',
     author_email='catchjosh@gmail.com',
@@ -25,5 +25,5 @@ setup(
     license="http://www.apache.org/licenses/LICENSE-2.0",
     package_data={"mogo": ["py.typed"]},
     packages=['mogo', ],
-    install_requires=["pymongo>=3.0"],
+    install_requires=["pymongo>=4.1"],
     zip_safe=False)

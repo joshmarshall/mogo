@@ -40,7 +40,7 @@ from mogo.connection import Connection, Session
 from mogo.decorators import notinstancemethod
 from mogo.cursor import Cursor
 from mogo.field import Field, EmptyRequiredField
-from mogo.helpers import check_none
+from mogo.helpers import check_none, Document
 
 from bson.dbref import DBRef
 from bson.objectid import ObjectId
@@ -90,7 +90,7 @@ class UnknownField(Exception):
 class NewModelClass(type):
     """ Metaclass for inheriting field lists """
 
-    def __new__(  # type: ignore
+    def __new__(
             cls,
             name: str,
             bases: Tuple[type, ...],
@@ -131,8 +131,8 @@ class Model(metaclass=NewModelClass):
     _id_field = "_id"  # type: str
     _id_type = ObjectId  # type: Any
     _name = None  # type: Optional[str]
-    _pymongo_data = None  # type: Optional[Dict[str, Any]]
-    _collection = None  # type: Optional[Collection]
+    _pymongo_data: Optional[dict[str, Any]] = None
+    _collection: Optional[Collection[Document]] = None
     _child_models = None  # type: Optional[Dict[Any, Type["PolyModel"]]]
     _init_okay = False  # type: bool
     __fields = None  # type: Optional[Dict[int, str]]
@@ -193,7 +193,7 @@ class Model(metaclass=NewModelClass):
         if connection is None:
             raise Exception("No connection for session.")
         collection = connection.get_collection(
-            Wrapped._get_name())  # type: Collection
+            Wrapped._get_name())  # type: Collection[Any]
         Wrapped._collection = collection
         return Wrapped
 
@@ -264,7 +264,7 @@ class Model(metaclass=NewModelClass):
             field_name: str,
             new_field_descriptor: Any) -> None:
         """ Adds a new field to the class """
-        assert(isinstance(new_field_descriptor, Field))
+        assert isinstance(new_field_descriptor, Field)
         setattr(cls, field_name, new_field_descriptor)
         cls._update_fields()
 
@@ -301,7 +301,7 @@ class Model(metaclass=NewModelClass):
         if "safe" in kwargs:
             warn_about_keyword_deprecation("safe")
             del kwargs["safe"]
-        coll = cls._get_collection()  # type: Collection
+        coll = cls._get_collection()  # type: Collection[Any]
         if "multi" in kwargs and kwargs.pop("multi") is True:
             return coll.update_many(*args, **kwargs)
         return coll.update_one(*args, **kwargs)
@@ -424,7 +424,7 @@ class Model(metaclass=NewModelClass):
         if "timeout" in kwargs:
             warn_about_keyword_deprecation("timeout")
             del kwargs["timeout"]
-        coll = cls._get_collection()  # type: Collection
+        coll = cls._get_collection()  # type: Collection[Any]
         find_result = coll.find_one(
             *args, **kwargs)  # type: Optional[Dict[str, Any]]
         result = None  # type: Optional[M]
@@ -451,20 +451,12 @@ class Model(metaclass=NewModelClass):
 
         return Cursor(cls, *args, **kwargs)
 
-    @classmethod
-    def group(
-            cls: Type[M],
-            *args: Any,
-            **kwargs: Any) -> Iterator[Dict[str, Any]]:
-        # This is deprecated, and will be removed from PyMongo in version 4.0
-        return cls._get_collection().group(*args, **kwargs)
-
     @notinstancemethod
     @classmethod
     def aggregate(
             cls: Type[M],
             pipeline: Sequence[Dict[str, Any]],
-            **kwargs: Any) -> Iterator[Dict[str, Any]]:
+            **kwargs: Any) -> Iterator[Document]:
         return cls._get_collection().aggregate(pipeline, **kwargs)
 
     @classmethod
@@ -504,7 +496,7 @@ class Model(metaclass=NewModelClass):
     @classmethod
     def grab(cls: Type[M], object_id: Any) -> Optional[M]:
         """ A shortcut to retrieve one object by its id. """
-        if type(object_id) != cls._id_type:
+        if not isinstance(object_id, cls._id_type):
             object_id = cls._id_type(object_id)
         return cls.find_one({cls._id_field: object_id})
 
@@ -524,20 +516,21 @@ class Model(metaclass=NewModelClass):
         return cls._get_collection().drop_indexes(*args, **kwargs)
 
     @classmethod
-    def distinct(cls: Type[M], key: str) -> Iterator[Any]:
+    def distinct(cls: Type[M], key: str) -> list[Any]:
         """ Wrapper for collection distinct() """
         return cls.find().distinct(key)
 
     # Map Reduce and Group methods eventually go here.
 
     @classmethod
-    def _get_collection(cls: Type[M]) -> Collection:
+    def _get_collection(cls: Type[M]) -> Collection[Document]:
         """ Connects and caches the collection connection object. """
-        if not cls._collection:
-            conn = Connection.instance()
-            coll = conn.get_collection(cls._get_name())  # type: Collection
-            cls._collection = coll
-        return cls._collection
+        if cls._collection is not None:
+            # Use collection provided by Session, if available.
+            return cls._collection
+
+        conn = Connection.instance()
+        return conn.get_collection(cls._get_name())
 
     @classmethod
     def _get_name(cls: Type[M]) -> str:
@@ -589,7 +582,7 @@ class Model(metaclass=NewModelClass):
     @classmethod
     def make_ref(cls: Type[M], idval: Any) -> DBRef:
         """ Generates a DBRef for a given id. """
-        if type(idval) != cls._id_type and callable(cls._id_type):
+        if not isinstance(idval, cls._id_type) and callable(cls._id_type):
             # Casting to ObjectId (or str, or whatever is configured)
             id_type = cast(Callable[..., M], cls._id_type)
             idval = id_type(idval)
@@ -630,7 +623,7 @@ class PolyModel(Model):
                 key = key_field._get_default()
             if key in cls._child_models:
                 create_class = cast(Type[P], cls._child_models[key])
-        return cast(P, super().__new__(create_class))
+        return super().__new__(create_class)
 
     @classmethod
     def get_child_key(cls: Type[P]) -> str:
@@ -671,7 +664,7 @@ class PolyModel(Model):
                 return _wrap_polymodel(cls, poly_name, value, child_cls)
             return wrap
         elif issubclass(value, cls):
-            child_cls = cast(Type[P], value)
+            child_cls = value
             name = child_cls.__name__.lower()
             value = name
             return _wrap_polymodel(cls, name, value, child_cls)

@@ -7,11 +7,11 @@ import mogo
 from mogo.connection import connect
 from mogo.model import PolyModel, Model, InvalidUpdateCall, UnknownField
 from mogo.field import ReferenceField, Field, EmptyRequiredField
-from pymongo.errors import OperationFailure
 import unittest
 import warnings
 
-from typing import Any, cast, Dict, List, Sequence
+from typing import Any, cast
+from typing import Dict, List, Sequence  # noqa: F401
 
 
 class Ref(Model):
@@ -332,20 +332,6 @@ class TestModel(unittest.TestCase):
                 {"_id": "infant", "total_age": 6}
             ],
             list(result))
-
-    def test_group_raises_deprecation_warning(self) -> None:
-        Adult.create(age=24)
-        Adult.create(age=50)
-        Infant.create(age=5)
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("error")
-            with self.assertRaises((DeprecationWarning, OperationFailure)):
-                Person.group(
-                    key={"age": 0},
-                    condition={},
-                    reduce="function (obj, prev) { prev.age += obj.age; }",
-                    initial={"age": 0})
 
     def test_find_one_and_find_raise_warning_with_timeout(self) -> None:
         with warnings.catch_warnings():

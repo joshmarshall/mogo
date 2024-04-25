@@ -1,37 +1,58 @@
 version: 2.1
 
 jobs:
-  build-and-test:
+  test:
+    parameters:
+      python_version:
+        description: "The Python version to use for running the tests"
+        type: string
     docker:
-      - image: cimg/python:3.9.2
+      - image: cimg/python:<< parameters.python_version >>
       - image: circleci/mongo:latest-ram
     steps:
       - checkout
+      - run:
+          name: Save Python Version
+          command: |
+            python --version > pythonversion
       - restore_cache:
           keys:
-            - dev-cache-{{ checksum "tox.ini" }}
+            - v1-python-{{ checksum "pythonversion" }}-dependencies-{{ checksum "setup.py" }}-{{ checksum "dev-requirements.txt" }}
       - run:
-          name: Install dev dependencies
-          command: pip3 install tox tox-pyenv
-      - run: pyenv install --skip-existing 3.5-dev
-      - run: pyenv install --skip-existing 3.6-dev
-      - run: pyenv install --skip-existing 3.7-dev
-      - run: pyenv install --skip-existing 3.8-dev
-      - run: pyenv install --skip-existing 3.9-dev
-      - run:
-          name: Set local Python versions
-          command: pyenv local 3.5-dev 3.6-dev 3.7-dev 3.8-dev 3.9-dev 3.9.2
+          name: Install Dependencies
+          command: |
+            python -m venv ~/venv
+            . ~/venv/bin/activate
+            pip install .
+            pip install -r dev-requirements.txt
       - save_cache:
-          key: dev-cache-{{ checksum "tox.ini" }}
           paths:
-            - /home/circleci/.cache/pip
-            - /home/circleci/.pyenv/versions/
-            - /home/circleci/.local/lib/
+            - ~/venv
+          key: v1-python-{{ checksum "pythonversion" }}-dependencies-{{ checksum "setup.py" }}-{{ checksum "dev-requirements.txt" }}
       - run:
-          command: tox
-          name: Run package tests across all python variants
+          name: Run Tests
+          command: |
+            . ~/venv/bin/activate
+            pytest --cov=mogo --cov-report=term --cov-report=xml:reports/coverage-results.xml --junit-xml reports/test-results.xml tests/
+      - run:
+          name: Check Types
+          command: |
+            . ~/venv/bin/activate
+            mypy -p mogo -p tests --strict --junit-xml reports/type-checking-results.xml
+      - run:
+          name: Run Linter
+          command: |
+            . ~/venv/bin/activate
+            flake8
       - store_test_results:
           path: reports
+          prefix: python-<< parameters.python_version >>
+
+  build:
+    docker:
+      - image: cimg/python:3.9.2
+    steps:
+      - checkout
       - run:
           command: pip install build
           name: Install build dependency
@@ -44,4 +65,16 @@ jobs:
 workflows:
   main:
     jobs:
-      - build-and-test
+      - test:
+          name: test-3.9
+          python_version: "3.9"
+      - test:
+          name: test-3.10
+          python_version: "3.10"
+      - test:
+          name: test-3.11
+          python_version: "3.11"
+      - test:
+          name: test-3.12
+          python_version: "3.12"
+      - build

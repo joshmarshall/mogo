@@ -10,7 +10,6 @@ probably want to change DBNAME. :)
 
 from datetime import datetime
 import unittest
-import warnings
 
 from bson.objectid import ObjectId
 import mogo
@@ -21,9 +20,8 @@ from mogo.cursor import Cursor
 from mogo.model import UnknownField
 import pymongo
 from pymongo.collation import Collation
-from pymongo.errors import OperationFailure
 
-from typing import Any, cast, Optional, Type, TypeVar
+from typing import Any, cast, Optional, overload, Type, TypeVar
 
 
 T = TypeVar("T")
@@ -124,11 +122,24 @@ class TestMogoGeneralUsage(unittest.TestCase):
     def setUp(self) -> None:
         self._conn = connect(DBNAME)
 
+    def tearDown(self) -> None:
+        if DELETE:
+            self._conn.drop_database(DBNAME)
+            self._conn.drop_database(ALTDB)
+        self._conn.close()
+
+    @overload
+    def assert_not_none(self, obj: Optional[T]) -> T:
+        ...
+
+    @overload
+    def assert_not_none(self, obj: Any) -> Any:
+        ...
+
     def assert_not_none(self, obj: Optional[T]) -> T:
         # this is just a custom version of assertIsNotNone that
         # returns the object of the correct type if it's not null
-        if obj is None:
-            self.fail("Object unexpectedly none.")
+        assert obj is not None
         return obj
 
     def test_connect_populates_database(self) -> None:
@@ -136,7 +147,6 @@ class TestMogoGeneralUsage(unittest.TestCase):
         self.assertIsInstance(self._conn, pymongo.MongoClient)
         connection = Connection.instance()
         self.assertEqual(connection._database, DBNAME)
-        self._conn.close()
 
     def test_uri_connect_populates_database_values(self) -> None:
         conn = connect(uri="mongodb://localhost/{}".format(DBNAME))
@@ -516,25 +526,6 @@ class TestMogoGeneralUsage(unittest.TestCase):
         user.save()
         self.assertEqual(company.people.count(), 1)
 
-    def test_group_passes_args_to_cursor_and_is_depreceted(self) -> None:
-        db = self._conn[DBNAME]
-        for i in range(100):
-            obj = {"alt": i % 2, "count": i}
-            db["counter"].insert_one(obj)
-
-        class Counter(Model):
-            pass
-
-        with warnings.catch_warnings():
-            warnings.simplefilter("error")
-            with self.assertRaises((DeprecationWarning, OperationFailure)):
-                result = Counter.group(
-                    key={"alt": 1},
-                    condition={"alt": 0},
-                    reduce="function (obj, prev) { prev.count += obj.count; }",
-                    initial={"count": 0})
-                self.assertEqual(result[0]["count"], 2450)  # type: ignore
-
     def test_order_on_cursor_accepts_field_keywords(self) -> None:
 
         class OrderTest(Model):
@@ -745,9 +736,3 @@ class TestMogoGeneralUsage(unittest.TestCase):
             foo_x.save()
         result = foo.first(bar="search")
         self.assertEqual(result, foo)
-
-    def tearDown(self) -> None:
-        if DELETE:
-            self._conn.drop_database(DBNAME)
-            self._conn.drop_database(ALTDB)
-        self._conn.close()

@@ -1,11 +1,13 @@
-from mogo.helpers import check_none
+from mogo.helpers import check_none, Document
 
 from pymongo import ASCENDING, DESCENDING
 from pymongo.collation import Collation
 from pymongo.cursor import Cursor as PyCursor
 
-from typing import Any, cast, Dict, Generic, Iterator, List, Optional, Tuple
+from typing import Any, cast, Dict, Generic, Optional
 from typing import Type, TypeVar, TYPE_CHECKING
+
+from typing import List, Tuple  # noqa: F401
 
 
 ASC = ASCENDING
@@ -21,7 +23,7 @@ class Cursor(Generic[T]):
     _query = None  # type: Optional[Dict[str, Any]]
     _model = None  # type: Optional[Type[T]]
     _model_class = None  # type: Optional[Type[T]]
-    _cursor = None  # type: Optional[PyCursor]
+    _cursor: Optional[PyCursor[Document]] = None
 
     def __init__(
             self,
@@ -50,10 +52,7 @@ class Cursor(Generic[T]):
 
     def count(self) -> int:
         collection = check_none(self._model_class)._get_collection()
-        if hasattr(collection, "count_documents"):
-            return collection.count_documents(self._query or {})
-        # count on a cursor is deprecated, ultimately this will be removed
-        return check_none(self._cursor).count()
+        return collection.count_documents(self._query or {})
 
     # convenient because if it quacks like a list...
     def __len__(self) -> int:
@@ -73,9 +72,10 @@ class Cursor(Generic[T]):
         return self
 
     def first(self) -> Optional[T]:
-        if self.count() == 0:
+        try:
+            return self.next()
+        except StopIteration:
             return None
-        return self.next()
 
     def collation(self, collation: Collation) -> "Cursor[T]":
         check_none(self._cursor).collation(collation)
@@ -122,8 +122,8 @@ class Cursor(Generic[T]):
         modifier = {"$set": kwargs}
         return self.update(modifier)
 
-    def distinct(self, key: str) -> Iterator[Any]:
-        return cast(Iterator[Any], check_none(self._cursor).distinct(key))
+    def distinct(self, key: str) -> list[Any]:
+        return check_none(self._cursor).distinct(key)
 
 
 if TYPE_CHECKING:
